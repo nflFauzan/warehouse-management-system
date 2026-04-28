@@ -1,0 +1,25 @@
+<div class="flex items-center justify-between mb-6">
+  <div><h1 class="text-xl font-bold text-dark-gray">Kelola User</h1><p class="text-sm text-gray-500">Hanya Owner yang dapat mengelola user</p></div>
+  <a href="/settings/users/create" class="btn-primary flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Tambah User</a>
+</div>
+<div class="card overflow-hidden p-0">
+  <table class="w-full text-sm">
+    <thead><tr class="table-header">
+      <th class="py-3 px-4 text-left">Nama</th><th class="py-3 px-4 text-left">Email</th>
+      <th class="py-3 px-4 text-center">Role</th><th class="py-3 px-4 text-center">Status</th><th class="py-3 px-4 text-center">Aksi</th>
+    </tr></thead>
+    <tbody>
+      <% users.forEach(function(u) { %>
+      <tr class="border-b border-gray-50 hover:bg-gray-50/50">
+        <td class="py-3 px-4 font-medium"><%= u.name %></td>
+        <td class="py-3 px-4 text-gray-500"><%= u.email %></td>
+        <td class="py-3 px-4 text-center"><span class="badge bg-blue-50 text-blue-primary border border-blue-200 capitalize"><%= u.role %></span></td>
+        <td class="py-3 px-4 text-center"><span class="<%= u.is_active ? 'badge-safe' : 'badge-empty' %>"><%= u.is_active ? 'AKTIF' : 'NONAKTIF' %></span></td>
+        <td class="py-3 px-4 text-center">
+          <a href="/settings/users/<%= u.id %>/edit" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-yellow-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></a>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>

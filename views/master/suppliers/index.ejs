@@ -1,0 +1,50 @@
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-xl font-bold text-dark-gray">Master Supplier</h1>
+    <p class="text-sm text-gray-500">Kelola data supplier</p>
+  </div>
+  <% if (user && (user.role === 'admin' || user.role === 'owner')) { %>
+  <a href="/master/suppliers/create" class="btn-primary flex items-center gap-2">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    Tambah Supplier
+  </a>
+  <% } %>
+</div>
+<div class="card mb-4">
+  <form method="GET" action="/master/suppliers" class="flex gap-3 items-end">
+    <div class="flex-1">
+      <input type="text" name="search" value="<%= search %>" placeholder="Cari kode atau nama supplier..." class="form-input">
+    </div>
+    <button type="submit" class="btn-secondary">Cari</button>
+  </form>
+</div>
+<div class="card overflow-hidden p-0">
+  <table class="w-full text-sm">
+    <thead><tr class="table-header">
+      <th class="text-left py-3 px-4">Kode</th><th class="text-left py-3 px-4">Nama</th>
+      <th class="text-left py-3 px-4">Telepon</th><th class="text-left py-3 px-4">Email</th>
+      <th class="text-center py-3 px-4">Status</th><th class="text-center py-3 px-4">Aksi</th>
+    </tr></thead>
+    <tbody>
+      <% if (suppliers.length === 0) { %><tr><td colspan="6" class="text-center py-8 text-gray-400">Tidak ada data</td></tr><% } %>
+      <% suppliers.forEach(function(s) { %>
+      <tr class="border-b border-gray-50 hover:bg-gray-50/50">
+        <td class="py-3 px-4 font-mono text-xs font-medium"><%= s.code %></td>
+        <td class="py-3 px-4 font-medium"><%= s.name %></td>
+        <td class="py-3 px-4 text-gray-500"><%= s.phone || '-' %></td>
+        <td class="py-3 px-4 text-gray-500"><%= s.email || '-' %></td>
+        <td class="py-3 px-4 text-center"><span class="<%= s.is_active ? 'badge-safe' : 'badge-empty' %>"><%= s.is_active ? 'AKTIF' : 'NONAKTIF' %></span></td>
+        <td class="py-3 px-4 text-center">
+          <% if (user && (user.role === 'admin' || user.role === 'owner')) { %>
+          <div class="flex items-center justify-center gap-1">
+            <a href="/master/suppliers/<%= s.id %>/edit" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-yellow-600" title="Edit">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </a>
+          </div>
+          <% } %>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,122 @@
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-xl font-bold text-dark-gray">Master Barang</h1>
+    <p class="text-sm text-gray-500">Kelola data barang inventaris gudang</p>
+  </div>
+  <% if (user && (user.role === 'admin' || user.role === 'owner')) { %>
+  <a href="/master/items/create" class="btn-primary flex items-center gap-2">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    Tambah Barang
+  </a>
+  <% } %>
+</div>
+
+<!-- Filters -->
+<div class="card mb-6">
+  <form method="GET" action="/master/items" class="flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-[200px]">
+      <label class="form-label">Cari</label>
+      <input type="text" name="search" value="<%= search %>" placeholder="Kode atau nama barang..." class="form-input">
+    </div>
+    <div class="w-48">
+      <label class="form-label">Kategori</label>
+      <select name="category_id" class="form-select">
+        <option value="">Semua Kategori</option>
+        <% categories.forEach(function(cat) { %>
+          <option value="<%= cat.id %>" <%= category_id == cat.id ? 'selected' : '' %>><%= cat.name %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div class="w-40">
+      <label class="form-label">Status</label>
+      <select name="status" class="form-select">
+        <option value="">Semua</option>
+        <option value="safe" <%= status === 'safe' ? 'selected' : '' %>>Aman</option>
+        <option value="critical" <%= status === 'critical' ? 'selected' : '' %>>Kritis</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-secondary">Filter</button>
+    <a href="/master/items" class="btn-ghost">Reset</a>
+  </form>
+</div>
+
+<!-- Table -->
+<div class="card overflow-hidden p-0">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="table-header">
+          <th class="text-left py-3 px-4">Kode Barang</th>
+          <th class="text-left py-3 px-4">Nama</th>
+          <th class="text-left py-3 px-4">Kategori</th>
+          <th class="text-left py-3 px-4">Satuan</th>
+          <th class="text-right py-3 px-4">Stok Saat Ini</th>
+          <th class="text-right py-3 px-4">Min. Stok</th>
+          <th class="text-center py-3 px-4">Status</th>
+          <th class="text-center py-3 px-4">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (items.length === 0) { %>
+          <tr><td colspan="8" class="text-center py-8 text-gray-400">Tidak ada data barang</td></tr>
+        <% } %>
+        <% items.forEach(function(item) { %>
+          <% const itemStatus = item.status; %>
+          <tr class="border-b border-gray-50 hover:bg-gray-50/50 transition-colors
+            <%= itemStatus === 'critical' ? 'bg-[#FFF5F5]' : '' %>
+            <%= itemStatus === 'empty' ? 'bg-[#FFFBF0]' : '' %>">
+            <td class="py-3 px-4 font-mono text-xs font-medium"><%= item.code %></td>
+            <td class="py-3 px-4 font-medium text-dark-gray"><%= item.name %></td>
+            <td class="py-3 px-4 text-gray-500"><%= item.category ? item.category.name : '-' %></td>
+            <td class="py-3 px-4 text-gray-500"><%= item.unit ? item.unit.name : '-' %></td>
+            <td class="py-3 px-4 text-right font-mono font-bold <%= itemStatus === 'critical' ? 'text-danger' : itemStatus === 'empty' ? 'text-gray-700' : 'text-dark-gray' %>">
+              <%= formatNumber(item.current_stock) %>
+            </td>
+            <td class="py-3 px-4 text-right font-mono text-gray-500"><%= formatNumber(item.minimum_stock) %></td>
+            <td class="py-3 px-4 text-center">
+              <% if (itemStatus === 'safe') { %>
+                <span class="badge-safe">AMAN</span>
+              <% } else if (itemStatus === 'critical') { %>
+                <span class="badge-critical">KRITIS</span>
+              <% } else if (itemStatus === 'empty') { %>
+                <span class="badge-empty">HABIS</span>
+              <% } else { %>
+                <span class="badge bg-gray-50 text-gray-400 border border-gray-200">—</span>
+              <% } %>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <a href="/stock/<%= item.id %>/history" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-primary" title="Riwayat">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </a>
+                <% if (user && (user.role === 'admin' || user.role === 'owner')) { %>
+                <a href="/master/items/<%= item.id %>/edit" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-yellow-600" title="Edit">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                </a>
+                <form action="/master/items/<%= item.id %>?_method=DELETE" method="POST" class="inline" onsubmit="return confirm('Nonaktifkan barang ini?')">
+                  <button type="submit" class="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-danger" title="Hapus">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </form>
+                <% } %>
+              </div>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <% if (totalPages > 1) { %>
+  <div class="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+    <p class="text-xs text-gray-500">Menampilkan <%= (currentPage - 1) * 20 + 1 %>–<%= Math.min(currentPage * 20, count) %> dari <%= count %> barang</p>
+    <div class="flex gap-1">
+      <% for (let p = 1; p <= totalPages; p++) { %>
+        <a href="/master/items?page=<%= p %>&search=<%= search %>&category_id=<%= category_id %>&status=<%= status %>"
+           class="px-3 py-1 rounded text-xs font-medium <%= p === currentPage ? 'bg-blue-primary text-white' : 'text-gray-600 hover:bg-gray-100' %>"><%= p %></a>
+      <% } %>
+    </div>
+  </div>
+  <% } %>
+</div>

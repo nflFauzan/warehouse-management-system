@@ -1,0 +1,40 @@
+<div class="flex items-center justify-between mb-6">
+  <div><h1 class="text-xl font-bold text-dark-gray">Laporan Stok Periodik</h1><p class="text-sm text-gray-500">Ringkasan mutasi stok per periode</p></div>
+</div>
+<div class="card mb-4">
+  <form method="GET" action="/laporan/stok" class="flex flex-wrap gap-3 items-end">
+    <div><label class="form-label">Dari</label><input type="date" name="date_from" value="<%= dateFrom %>" class="form-input"></div>
+    <div><label class="form-label">Sampai</label><input type="date" name="date_to" value="<%= dateTo %>" class="form-input"></div>
+    <div class="w-44">
+      <label class="form-label">Kategori</label>
+      <select name="category_id" class="form-select"><option value="">Semua</option><% categories.forEach(function(c) { %><option value="<%= c.id %>" <%= category_id == c.id ? 'selected' : '' %>><%= c.name %></option><% }); %></select>
+    </div>
+    <button type="submit" class="btn-secondary">Tampilkan</button>
+  </form>
+</div>
+<div class="grid grid-cols-3 gap-3 mb-4">
+  <div class="card text-center"><p class="text-xs text-gray-500 uppercase mb-1">Total Masuk</p><p class="text-xl font-bold font-mono text-success">+<%= formatNumber(summary.total_in) %></p></div>
+  <div class="card text-center"><p class="text-xs text-gray-500 uppercase mb-1">Total Keluar</p><p class="text-xl font-bold font-mono text-danger">-<%= formatNumber(summary.total_out) %></p></div>
+  <div class="card text-center"><p class="text-xs text-gray-500 uppercase mb-1">Selisih Bersih</p><p class="text-xl font-bold font-mono <%= summary.net >= 0 ? 'text-success' : 'text-danger' %>"><%= summary.net >= 0 ? '+' : '' %><%= formatNumber(summary.net) %></p></div>
+</div>
+<div class="card overflow-hidden p-0">
+  <table class="w-full text-sm">
+    <thead><tr class="table-header">
+      <th class="py-3 px-4 text-left">Kode</th><th class="py-3 px-4 text-left">Nama</th><th class="py-3 px-4 text-left">Kategori</th>
+      <th class="py-3 px-4 text-right">Stok Awal</th><th class="py-3 px-4 text-right">Masuk</th><th class="py-3 px-4 text-right">Keluar</th><th class="py-3 px-4 text-right">Stok Akhir</th>
+    </tr></thead>
+    <tbody>
+      <% items.forEach(function(row) { %>
+      <tr class="border-b border-gray-50 hover:bg-gray-50/50">
+        <td class="py-3 px-4 font-mono text-xs"><%= row.item.code %></td>
+        <td class="py-3 px-4 font-medium"><%= row.item.name %></td>
+        <td class="py-3 px-4 text-gray-500"><%= row.item.category ? row.item.category.name : '-' %></td>
+        <td class="py-3 px-4 text-right font-mono"><%= formatNumber(row.stok_awal) %></td>
+        <td class="py-3 px-4 text-right font-mono text-success"><%= row.total_in > 0 ? '+' + formatNumber(row.total_in) : '-' %></td>
+        <td class="py-3 px-4 text-right font-mono text-danger"><%= row.total_out > 0 ? '-' + formatNumber(row.total_out) : '-' %></td>
+        <td class="py-3 px-4 text-right font-mono font-bold"><%= formatNumber(row.stok_akhir) %> <span class="text-gray-400 text-xs"><%= row.item.unit ? row.item.unit.abbr : '' %></span></td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>

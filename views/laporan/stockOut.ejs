@@ -1,0 +1,33 @@
+<div class="flex items-center justify-between mb-6">
+  <div><h1 class="text-xl font-bold text-dark-gray">Laporan Barang Keluar</h1></div>
+</div>
+<div class="card mb-4">
+  <form method="GET" action="/laporan/keluar" class="flex flex-wrap gap-3 items-end">
+    <div><label class="form-label">Dari</label><input type="date" name="date_from" value="<%= dateFrom %>" class="form-input"></div>
+    <div><label class="form-label">Sampai</label><input type="date" name="date_to" value="<%= dateTo %>" class="form-input"></div>
+    <button type="submit" class="btn-secondary">Tampilkan</button>
+  </form>
+</div>
+<% stockOuts.forEach(function(so) { %>
+<div class="card mb-3">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <span class="font-mono text-sm font-bold text-blue-primary"><%= so.reference_no %></span>
+      <span class="text-sm text-gray-500 ml-2"><%= formatDate(so.issued_at) %></span>
+    </div>
+    <span class="text-sm text-gray-500"><%= so.customer ? so.customer.name : '' %></span>
+  </div>
+  <table class="w-full text-sm">
+    <tbody>
+      <% so.items.forEach(function(line) { %>
+      <tr class="border-b border-gray-50">
+        <td class="py-2 font-mono text-xs text-gray-500"><%= line.item ? line.item.code : '-' %></td>
+        <td class="py-2"><%= line.item ? line.item.name : '-' %></td>
+        <td class="py-2 text-right font-mono font-bold text-danger">-<%= formatNumber(line.quantity) %> <%= line.item && line.item.unit ? line.item.unit.abbr : '' %></td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>
+<% }); %>
+<% if (stockOuts.length === 0) { %><div class="card text-center text-gray-400 py-8">Tidak ada data pada periode ini</div><% } %>

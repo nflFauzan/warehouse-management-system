@@ -1,0 +1,67 @@
+<div class="max-w-2xl mx-auto">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="/master/items" class="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-dark-gray transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    <div>
+      <h1 class="text-xl font-bold text-dark-gray"><%= item ? 'Edit Barang' : 'Tambah Barang Baru' %></h1>
+      <p class="text-sm text-gray-500"><%= item ? `Mengedit ${item.code}` : 'Isi data untuk menambah barang baru' %></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <form action="<%= item ? `/master/items/${item.id}?_method=PUT` : '/master/items' %>" method="POST" class="space-y-5">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Kode Barang *</label>
+          <input type="text" name="code" value="<%= item ? item.code : '' %>" required class="form-input font-mono" placeholder="BJ-CNP-001">
+        </div>
+        <div>
+          <label class="form-label">Nama Barang *</label>
+          <input type="text" name="name" value="<%= item ? item.name : '' %>" required class="form-input" placeholder="Baja CNP 100x50x3mm">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Kategori *</label>
+          <select name="category_id" required class="form-select">
+            <option value="">Pilih Kategori</option>
+            <% categories.forEach(function(cat) { %>
+              <option value="<%= cat.id %>" <%= item && item.category_id == cat.id ? 'selected' : '' %>><%= cat.name %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Satuan *</label>
+          <select name="unit_id" required class="form-select">
+            <option value="">Pilih Satuan</option>
+            <% units.forEach(function(u) { %>
+              <option value="<%= u.id %>" <%= item && item.unit_id == u.id ? 'selected' : '' %>><%= u.name %> (<%= u.abbr %>)</option>
+            <% }); %>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <% if (!item) { %>
+        <div>
+          <label class="form-label">Stok Awal</label>
+          <input type="number" name="current_stock" value="0" min="0" step="0.01" class="form-input font-mono">
+        </div>
+        <% } %>
+        <div>
+          <label class="form-label">Minimum Stok</label>
+          <input type="number" name="minimum_stock" value="<%= item ? item.minimum_stock : 0 %>" min="0" step="0.01" class="form-input font-mono">
+          <p class="text-xs text-gray-400 mt-1">0 = tidak ada batas minimum</p>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Deskripsi</label>
+        <textarea name="description" rows="2" class="form-input" placeholder="Deskripsi tambahan (opsional)"><%= item && item.description ? item.description : '' %></textarea>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="btn-primary"><%= item ? 'Simpan Perubahan' : 'Tambah Barang' %></button>
+        <a href="/master/items" class="btn-ghost">Batal</a>
+      </div>
+    </form>
+  </div>
+</div>
