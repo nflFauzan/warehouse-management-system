@@ -6,18 +6,22 @@ const { Op } = require('sequelize');
 // Autocomplete items
 router.get('/items/search', isAuthenticated, async (req, res) => {
   try {
-    const q = req.query.q || '';
+    const q = (req.query.q || '').trim();
+    const whereClause = { is_active: true };
+
+    if (q.length > 0) {
+      whereClause[Op.or] = [
+        { code: { [Op.iLike]: `%${q}%` } },
+        { name: { [Op.iLike]: `%${q}%` } },
+      ];
+    }
+
     const items = await Item.findAll({
-      where: {
-        is_active: true,
-        [Op.or]: [
-          { code: { [Op.like]: `%${q}%` } },
-          { name: { [Op.like]: `%${q}%` } },
-        ],
-      },
+      where: whereClause,
       include: [{ model: Unit, as: 'unit', attributes: ['abbr'] }],
       limit: 10,
       attributes: ['id', 'code', 'name', 'current_stock', 'unit_id'],
+      order: [['name', 'ASC']],
     });
 
     res.json(items.map(i => ({

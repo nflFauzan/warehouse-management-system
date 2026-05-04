@@ -12,41 +12,45 @@
 <% } %>
 
 <!-- Stat Cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="card flex items-center gap-4">
-    <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-      <svg class="w-6 h-6 text-blue-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+  <div class="card flex items-center gap-5 hover:shadow-md transition-shadow">
+    <div class="w-14 h-14 bg-blue-primary rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+      <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
     </div>
     <div>
-      <p class="text-xs text-gray-500 uppercase tracking-wider font-medium">Total SKU Aktif</p>
+      <p class="text-xs text-gray-400 font-medium mb-0.5">Total SKU Aktif</p>
       <p class="text-2xl font-bold text-dark-gray font-mono"><%= stats.total_sku %></p>
+      <p class="text-[11px] text-gray-400">Item</p>
     </div>
   </div>
-  <div class="card flex items-center gap-4">
-    <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-      <svg class="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"/></svg>
+  <div class="card flex items-center gap-5 hover:shadow-md transition-shadow">
+    <div class="w-14 h-14 bg-success rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+      <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"/></svg>
     </div>
     <div>
-      <p class="text-xs text-gray-500 uppercase tracking-wider font-medium">Masuk Hari Ini</p>
-      <p class="text-2xl font-bold text-success font-mono"><%= stats.in_today %></p>
+      <p class="text-xs text-gray-400 font-medium mb-0.5">Masuk Hari Ini</p>
+      <p class="text-2xl font-bold text-dark-gray font-mono"><%= stats.in_today %></p>
+      <p class="text-[11px] text-gray-400">Transaksi</p>
     </div>
   </div>
-  <div class="card flex items-center gap-4">
-    <div class="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-      <svg class="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+  <div class="card flex items-center gap-5 hover:shadow-md transition-shadow">
+    <div class="w-14 h-14 bg-danger rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+      <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
     </div>
     <div>
-      <p class="text-xs text-gray-500 uppercase tracking-wider font-medium">Keluar Hari Ini</p>
-      <p class="text-2xl font-bold text-danger font-mono"><%= stats.out_today %></p>
+      <p class="text-xs text-gray-400 font-medium mb-0.5">Keluar Hari Ini</p>
+      <p class="text-2xl font-bold text-dark-gray font-mono"><%= stats.out_today %></p>
+      <p class="text-[11px] text-gray-400">Transaksi</p>
     </div>
   </div>
-  <div class="card flex items-center gap-4">
-    <div class="w-12 h-12 rounded-xl flex items-center justify-center <%= stats.critical_items > 0 ? 'bg-red-50' : 'bg-gray-50' %>">
-      <svg class="w-6 h-6 <%= stats.critical_items > 0 ? 'text-danger' : 'text-gray-400' %>" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+  <div class="card flex items-center gap-5 hover:shadow-md transition-shadow">
+    <div class="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm <%= stats.critical_items > 0 ? 'bg-yellow-accent' : 'bg-gray-200' %>">
+      <svg class="w-6 h-6 <%= stats.critical_items > 0 ? 'text-dark-gray' : 'text-gray-400' %>" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
     </div>
     <div>
-      <p class="text-xs text-gray-500 uppercase tracking-wider font-medium">Stok Kritis</p>
+      <p class="text-xs text-gray-400 font-medium mb-0.5">Stok Kritis</p>
       <p class="text-2xl font-bold font-mono <%= stats.critical_items > 0 ? 'text-danger' : 'text-gray-400' %>"><%= stats.critical_items %></p>
+      <p class="text-[11px] text-gray-400">Item</p>
     </div>
   </div>
 </div>
@@ -91,12 +95,12 @@
         <canvas id="weeklyChart"></canvas>
       </div>
     </div>
-    <div class="grid grid-cols-2 gap-3">
-      <a href="/transaksi/masuk/create" class="btn-primary text-center py-4 rounded-xl flex items-center justify-center gap-2 no-underline">
+    <div class="grid grid-cols-2 gap-4">
+      <a href="/transaksi/masuk/create" class="btn-primary text-center py-4 rounded-xl flex items-center justify-center gap-2 no-underline shadow-sm hover:shadow-md transition-shadow">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         Barang Masuk
       </a>
-      <a href="/transaksi/keluar/create" class="btn-secondary text-center py-4 rounded-xl flex items-center justify-center gap-2 no-underline">
+      <a href="/transaksi/keluar/create" class="btn-secondary text-center py-4 rounded-xl flex items-center justify-center gap-2 no-underline shadow-sm hover:shadow-md transition-shadow">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         Barang Keluar
       </a>

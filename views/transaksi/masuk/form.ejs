@@ -67,17 +67,48 @@
                 <td class="py-2 px-3 text-gray-400" x-text="index + 1"></td>
                 <td class="py-2 px-3 relative" :style="row.showDropdown ? 'z-index: 50;' : ''">
                   <input type="hidden" :name="`items[${index}][item_id]`" x-model="row.item_id">
-                  <input type="text" x-model="row.search" @input="searchItems(index)" @focus="row.showDropdown = true"
-                         class="form-input text-sm" placeholder="Ketik kode/nama barang...">
-                  <div x-show="row.showDropdown && row.results.length > 0" @click.outside="row.showDropdown = false"
+                  <input type="text" x-model="row.search"
+                         @input="debouncedSearch(index)"
+                         @focus="onFocus(index)"
+                         @keydown.escape="row.showDropdown = false"
+                         @keydown.arrow-down.prevent="highlightNext(index)"
+                         @keydown.arrow-up.prevent="highlightPrev(index)"
+                         @keydown.enter.prevent="selectHighlighted(index)"
+                         class="form-input text-sm" placeholder="Ketik kode/nama barang..."
+                         autocomplete="off">
+                  <!-- Dropdown -->
+                  <div x-show="row.showDropdown" @click.outside="row.showDropdown = false"
                        class="absolute z-10 left-3 right-3 top-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    <template x-for="item in row.results" :key="item.id">
-                      <button type="button" @click="selectItem(index, item)"
-                              class="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex justify-between">
-                        <span><span class="font-mono text-xs text-gray-500" x-text="item.code"></span> — <span x-text="item.name"></span></span>
-                        <span class="font-mono text-xs text-gray-400" x-text="item.current_stock + ' ' + item.unit"></span>
-                      </button>
+                    <!-- Loading -->
+                    <div x-show="row.loading" class="px-3 py-3 text-sm text-gray-400 flex items-center gap-2">
+                      <svg class="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                      </svg>
+                      Mencari...
+                    </div>
+                    <!-- Results -->
+                    <template x-if="!row.loading && row.results.length > 0">
+                      <div>
+                        <template x-for="(item, idx) in row.results" :key="item.id">
+                          <button type="button" @click="selectItem(index, item)"
+                                  @mouseenter="row.highlightIndex = idx"
+                                  :class="row.highlightIndex === idx ? 'bg-blue-50' : ''"
+                                  class="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex justify-between items-center transition-colors">
+                            <span>
+                              <span class="font-mono text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded" x-text="item.code"></span>
+                              <span class="ml-2" x-text="item.name"></span>
+                            </span>
+                            <span class="font-mono text-xs text-gray-400 flex-shrink-0 ml-2" x-text="item.current_stock + ' ' + item.unit"></span>
+                          </button>
+                        </template>
+                      </div>
                     </template>
+                    <!-- No results -->
+                    <div x-show="!row.loading && row.results.length === 0 && row.searched" class="px-3 py-3 text-sm text-gray-400 text-center">
+                      <svg class="w-5 h-5 mx-auto mb-1 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                      Barang tidak ditemukan
+                    </div>
                   </div>
                 </td>
                 <td class="py-2 px-3">
@@ -117,25 +148,72 @@
 
 <script>
 function stockInForm() {
+  let _debounceTimers = {};
   return {
-    rows: [{ item_id: '', search: '', quantity: '', unit: '', stock_before: 0, stock_after: 0, results: [], showDropdown: false }],
+    rows: [{ item_id: '', search: '', quantity: '', unit: '', stock_before: 0, stock_after: 0, results: [], showDropdown: false, loading: false, searched: false, highlightIndex: -1 }],
+
     addRow() {
-      this.rows.push({ item_id: '', search: '', quantity: '', unit: '', stock_before: 0, stock_after: 0, results: [], showDropdown: false });
+      this.rows.push({ item_id: '', search: '', quantity: '', unit: '', stock_before: 0, stock_after: 0, results: [], showDropdown: false, loading: false, searched: false, highlightIndex: -1 });
     },
+
     removeRow(i) { this.rows.splice(i, 1); },
+
+    debouncedSearch(i) {
+      // Reset item_id when user modifies the search text
+      this.rows[i].item_id = '';
+      this.rows[i].unit = '';
+      this.rows[i].stock_before = 0;
+      this.rows[i].stock_after = 0;
+
+      clearTimeout(_debounceTimers[i]);
+      _debounceTimers[i] = setTimeout(() => this.searchItems(i), 250);
+    },
+
+    async onFocus(i) {
+      // Show dropdown on focus — if no results loaded yet, fetch all items
+      if (this.rows[i].results.length === 0 && !this.rows[i].item_id) {
+        await this.searchItems(i);
+      }
+      this.rows[i].showDropdown = true;
+    },
+
     async searchItems(i) {
       const q = this.rows[i].search;
-      if (q.length < 1) { this.rows[i].results = []; this.rows[i].showDropdown = false; return; }
+      this.rows[i].loading = true;
+      this.rows[i].showDropdown = true;
+      this.rows[i].highlightIndex = -1;
       try {
         const res = await fetch(`/api/items/search?q=${encodeURIComponent(q)}`);
         const data = await res.json();
         this.rows[i].results = Array.isArray(data) ? data : [];
-        this.rows[i].showDropdown = this.rows[i].results.length > 0;
+        this.rows[i].searched = true;
       } catch(e) {
         console.error(e);
         this.rows[i].results = [];
+      } finally {
+        this.rows[i].loading = false;
       }
     },
+
+    highlightNext(i) {
+      const row = this.rows[i];
+      if (row.results.length === 0) return;
+      row.highlightIndex = (row.highlightIndex + 1) % row.results.length;
+    },
+
+    highlightPrev(i) {
+      const row = this.rows[i];
+      if (row.results.length === 0) return;
+      row.highlightIndex = row.highlightIndex <= 0 ? row.results.length - 1 : row.highlightIndex - 1;
+    },
+
+    selectHighlighted(i) {
+      const row = this.rows[i];
+      if (row.highlightIndex >= 0 && row.highlightIndex < row.results.length) {
+        this.selectItem(i, row.results[row.highlightIndex]);
+      }
+    },
+
     selectItem(i, item) {
       this.rows[i].item_id = item.id;
       this.rows[i].search = `${item.code} — ${item.name}`;
@@ -143,14 +221,19 @@ function stockInForm() {
       this.rows[i].stock_before = parseFloat(item.current_stock) || 0;
       this.rows[i].showDropdown = false;
       this.rows[i].results = [];
+      this.rows[i].searched = false;
+      this.rows[i].highlightIndex = -1;
       this.calcAfter(i);
     },
+
     calcAfter(i) {
       const qty = parseFloat(this.rows[i].quantity) || 0;
       const before = parseFloat(this.rows[i].stock_before) || 0;
       this.rows[i].stock_after = before + qty;
     },
+
     formatNum(n) { return (parseFloat(n) || 0).toLocaleString('id-ID'); },
+
     beforeSubmit(e) {
       const hasValidItem = this.rows.some(r => r.item_id && parseFloat(r.quantity) > 0);
       if (!hasValidItem) {

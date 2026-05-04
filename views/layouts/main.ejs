@@ -14,22 +14,17 @@
 <body class="h-full bg-light-gray font-sans" x-data="{ sidebarOpen: true, mobileSidebar: false }">
   <div class="flex h-full">
     <!-- SIDEBAR -->
-    <aside class="fixed inset-y-0 left-0 z-30 flex flex-col bg-dark-gray transition-all duration-300"
-           :class="sidebarOpen ? 'w-[220px]' : 'w-[64px]'"
+    <aside class="fixed inset-y-0 left-0 z-30 flex flex-col bg-blue-primary transition-all duration-300"
+           :class="sidebarOpen ? 'w-[240px]' : 'w-[64px]'"
            x-cloak>
       <!-- Logo -->
-      <div class="flex items-center gap-2 px-4 h-[52px] border-b border-white/10 flex-shrink-0">
-        <div class="w-8 h-8 bg-yellow-accent rounded-lg flex items-center justify-center flex-shrink-0">
-          <span class="text-dark-gray font-extrabold text-sm">T</span>
-        </div>
-        <div x-show="sidebarOpen" x-transition class="overflow-hidden">
-          <span class="text-white font-bold text-lg tracking-tight">TAKKA</span>
-          <span class="text-yellow-accent font-bold text-lg tracking-tight">STEEL</span>
-        </div>
+      <div class="flex items-center gap-3 px-4 h-[72px] border-b border-white/10 flex-shrink-0 overflow-hidden">
+        <img src="/images/logo.png" alt="TAKKA STEEL" class="h-10 w-auto object-contain flex-shrink-0" x-show="sidebarOpen" x-transition>
+        <img src="/images/logo.png" alt="TAKKA STEEL" class="h-8 w-8 object-contain flex-shrink-0" x-show="!sidebarOpen" x-transition>
       </div>
 
       <!-- Nav -->
-      <nav class="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
+      <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         <a href="/" class="sidebar-link <%= currentPath === '/' ? 'active' : '' %>" title="Dashboard">
           <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
           <span x-show="sidebarOpen" x-transition>Dashboard</span>
@@ -37,51 +32,77 @@
 
         <!-- Master Data -->
         <div x-data="{ open: <%= currentPath.startsWith('/master') ? 'true' : 'false' %> }">
-          <button @click="open = !open" class="sidebar-link w-full justify-between <%= currentPath.startsWith('/master') ? 'active' : '' %>">
-            <div class="flex items-center gap-3">
-              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
-              <span x-show="sidebarOpen" x-transition>Master Data</span>
-            </div>
-            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          <div x-show="sidebarOpen" class="mt-5 mb-2 px-4">
+            <span class="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Master Data</span>
+          </div>
+          <button @click="open = !open" x-show="!sidebarOpen" class="sidebar-link w-full justify-center <%= currentPath.startsWith('/master') ? 'active' : '' %>" title="Master Data">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
           </button>
-          <div x-show="open && sidebarOpen" x-collapse class="ml-8 mt-1 space-y-1">
-            <a href="/master/items" class="block py-1.5 px-3 text-xs rounded <%= currentPath === '/master/items' ? 'text-yellow-accent bg-white/5' : 'text-gray-400 hover:text-white' %>">Barang</a>
-            <a href="/master/suppliers" class="block py-1.5 px-3 text-xs rounded <%= currentPath === '/master/suppliers' ? 'text-yellow-accent bg-white/5' : 'text-gray-400 hover:text-white' %>">Supplier</a>
-            <a href="/master/customers" class="block py-1.5 px-3 text-xs rounded <%= currentPath === '/master/customers' ? 'text-yellow-accent bg-white/5' : 'text-gray-400 hover:text-white' %>">Customer</a>
-            <a href="/master/categories" class="block py-1.5 px-3 text-xs rounded <%= currentPath === '/master/categories' ? 'text-yellow-accent bg-white/5' : 'text-gray-400 hover:text-white' %>">Kategori</a>
-            <a href="/master/units" class="block py-1.5 px-3 text-xs rounded <%= currentPath === '/master/units' ? 'text-yellow-accent bg-white/5' : 'text-gray-400 hover:text-white' %>">Satuan</a>
+          <div x-show="(sidebarOpen && true) || (!sidebarOpen && open)" x-collapse class="space-y-0.5">
+            <a href="/master/items" class="sidebar-link <%= currentPath === '/master/items' ? 'active' : '' %>">
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+              <span x-show="sidebarOpen" x-transition>Barang</span>
+            </a>
+            <a href="/master/suppliers" class="sidebar-link <%= currentPath === '/master/suppliers' ? 'active' : '' %>">
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+              <span x-show="sidebarOpen" x-transition>Supplier</span>
+            </a>
+            <a href="/master/customers" class="sidebar-link <%= currentPath === '/master/customers' ? 'active' : '' %>">
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              <span x-show="sidebarOpen" x-transition>Customer</span>
+            </a>
+            <a href="/master/categories" class="sidebar-link <%= currentPath === '/master/categories' ? 'active' : '' %>">
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+              <span x-show="sidebarOpen" x-transition>Kategori</span>
+            </a>
+            <a href="/master/units" class="sidebar-link <%= currentPath === '/master/units' ? 'active' : '' %>">
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+              <span x-show="sidebarOpen" x-transition>Satuan</span>
+            </a>
           </div>
         </div>
 
         <!-- Transaksi -->
         <div x-data="{ open: <%= currentPath.startsWith('/transaksi') ? 'true' : 'false' %> }">
-          <button @click="open = !open" class="sidebar-link w-full justify-between <%= currentPath.startsWith('/transaksi') ? 'active' : '' %>">
-            <div class="flex items-center gap-3">
-              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-              <span x-show="sidebarOpen" x-transition>Transaksi</span>
-            </div>
-            <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          <div x-show="sidebarOpen" class="mt-5 mb-2 px-4">
+            <span class="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Transaksi</span>
+          </div>
+          <button @click="open = !open" x-show="!sidebarOpen" class="sidebar-link w-full justify-center <%= currentPath.startsWith('/transaksi') ? 'active' : '' %>" title="Transaksi">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
           </button>
-          <div x-show="open && sidebarOpen" x-collapse class="ml-8 mt-1 space-y-1">
-            <a href="/transaksi/masuk" class="block py-1.5 px-3 text-xs rounded <%= currentPath.includes('/transaksi/masuk') ? 'text-yellow-accent bg-white/5' : 'text-gray-400 hover:text-white' %>">Barang Masuk</a>
-            <a href="/transaksi/keluar" class="block py-1.5 px-3 text-xs rounded <%= currentPath.includes('/transaksi/keluar') ? 'text-yellow-accent bg-white/5' : 'text-gray-400 hover:text-white' %>">Barang Keluar</a>
+          <div x-show="(sidebarOpen && true) || (!sidebarOpen && open)" x-collapse class="space-y-0.5">
+            <a href="/transaksi/masuk" class="sidebar-link <%= currentPath.includes('/transaksi/masuk') ? 'active' : '' %>">
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"/></svg>
+              <span x-show="sidebarOpen" x-transition>Barang Masuk</span>
+            </a>
+            <a href="/transaksi/keluar" class="sidebar-link <%= currentPath.includes('/transaksi/keluar') ? 'active' : '' %>">
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+              <span x-show="sidebarOpen" x-transition>Barang Keluar</span>
+            </a>
           </div>
         </div>
 
+        <!-- Stok -->
+        <div x-show="sidebarOpen" class="mt-5 mb-2 px-4">
+          <span class="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Stok</span>
+        </div>
         <a href="/stock" class="sidebar-link <%= currentPath.startsWith('/stock') ? 'active' : '' %>" title="Posisi Stok">
           <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
           <span x-show="sidebarOpen" x-transition>Posisi Stok</span>
         </a>
 
         <% if (user && (user.role === 'admin' || user.role === 'owner')) { %>
+        <div x-show="sidebarOpen" class="mt-5 mb-2 px-4">
+          <span class="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Laporan</span>
+        </div>
         <a href="/laporan/stok" class="sidebar-link <%= currentPath.startsWith('/laporan') ? 'active' : '' %>" title="Laporan">
           <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          <span x-show="sidebarOpen" x-transition>Laporan</span>
+          <span x-show="sidebarOpen" x-transition>Laporan Stok</span>
         </a>
         <% } %>
 
         <% if (user && user.role === 'owner') { %>
-        <a href="/settings/users" class="sidebar-link <%= currentPath.startsWith('/settings') ? 'active' : '' %>" title="Pengaturan">
+        <a href="/settings/users" class="sidebar-link mt-4 <%= currentPath.startsWith('/settings') ? 'active' : '' %>" title="Pengaturan">
           <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           <span x-show="sidebarOpen" x-transition>Pengaturan</span>
         </a>
@@ -89,31 +110,32 @@
       </nav>
 
       <!-- Collapse Toggle -->
-      <button @click="sidebarOpen = !sidebarOpen" class="hidden lg:flex items-center justify-center h-10 border-t border-white/10 text-gray-400 hover:text-white transition-colors">
+      <button @click="sidebarOpen = !sidebarOpen" class="hidden lg:flex items-center justify-center h-10 border-t border-white/10 text-white/50 hover:text-white transition-colors">
         <svg class="w-5 h-5 transition-transform" :class="!sidebarOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
       </button>
     </aside>
 
     <!-- MAIN CONTENT -->
-    <div class="flex-1 flex flex-col transition-all duration-300" :class="sidebarOpen ? 'ml-[220px]' : 'ml-[64px]'">
+    <div class="flex-1 flex flex-col transition-all duration-300" :class="sidebarOpen ? 'ml-[240px]' : 'ml-[64px]'">
       <!-- TOPBAR -->
-      <header class="sticky top-0 z-20 flex items-center justify-between h-[52px] px-6 bg-blue-primary shadow-sm">
+      <header class="sticky top-0 z-20 flex items-center justify-between h-[56px] px-6 bg-white border-b border-gray-200 shadow-sm">
         <div class="flex items-center gap-3">
-          <button @click="mobileSidebar = !mobileSidebar" class="lg:hidden text-white">
+          <button @click="mobileSidebar = !mobileSidebar" class="lg:hidden text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
-          <h1 class="text-white text-sm font-semibold tracking-wide">WAREHOUSE MANAGEMENT SYSTEM</h1>
         </div>
         <div class="flex items-center gap-4">
           <div class="text-right hidden sm:block">
-            <p class="text-white text-sm font-medium"><%= user ? user.name : '' %></p>
-            <p class="text-blue-200 text-xs capitalize"><%= user ? user.role : '' %></p>
+            <p class="text-dark-gray text-sm font-semibold"><%= user ? user.name : '' %></p>
+            <p class="text-gray-400 text-xs capitalize"><%= user ? user.role : '' %></p>
           </div>
-          <div class="w-8 h-8 bg-yellow-accent rounded-full flex items-center justify-center">
-            <span class="text-dark-gray font-bold text-sm"><%= user ? user.name.charAt(0).toUpperCase() : 'U' %></span>
+          <div class="w-9 h-9 bg-blue-primary rounded-full flex items-center justify-center shadow-sm">
+            <span class="text-white font-bold text-sm"><%= user ? user.name.charAt(0).toUpperCase() : 'U' %></span>
           </div>
           <form action="/logout" method="POST" class="inline">
-            <button type="submit" class="text-blue-200 hover:text-white transition-colors text-xs font-medium">Logout</button>
+            <button type="submit" class="text-gray-400 hover:text-danger transition-colors text-xs font-medium px-2 py-1.5 rounded-md hover:bg-red-50">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </button>
           </form>
         </div>
       </header>
