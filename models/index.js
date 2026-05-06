@@ -90,7 +90,7 @@ const Item = sequelize.define('Item', {
 const StockIn = sequelize.define('StockIn', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   reference_no: { type: DataTypes.STRING(30), allowNull: false, unique: true },
-  supplier_id: { type: DataTypes.INTEGER, allowNull: false },
+  supplier_id: { type: DataTypes.INTEGER, allowNull: true },
   received_by: { type: DataTypes.INTEGER, allowNull: false },
   supplier_ref: { type: DataTypes.STRING(100) },
   received_at: { type: DataTypes.DATEONLY, allowNull: false },
@@ -114,7 +114,7 @@ const StockInItem = sequelize.define('StockInItem', {
 const StockOut = sequelize.define('StockOut', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   reference_no: { type: DataTypes.STRING(30), allowNull: false, unique: true },
-  customer_id: { type: DataTypes.INTEGER, allowNull: false },
+  customer_id: { type: DataTypes.INTEGER, allowNull: true },
   issued_by: { type: DataTypes.INTEGER, allowNull: false },
   issued_at: { type: DataTypes.DATEONLY, allowNull: false },
   notes: { type: DataTypes.TEXT },
@@ -146,6 +146,48 @@ const StockMutation = sequelize.define('StockMutation', {
   created_by: { type: DataTypes.INTEGER, allowNull: false },
 }, { tableName: 'stock_mutations', timestamps: true, updatedAt: false, underscored: true });
 
+// ─── WAREHOUSE LAYOUT ─────────────────────────────────
+const WarehouseLayout = sequelize.define('WarehouseLayout', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  name: { type: DataTypes.STRING(100), allowNull: false },
+  rows: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 10 },
+  cols: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 10 },
+  is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
+}, { tableName: 'warehouse_layouts', timestamps: true, underscored: true });
+
+// ─── WAREHOUSE SLOT ───────────────────────────────────
+const WarehouseSlot = sequelize.define('WarehouseSlot', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  layout_id: { type: DataTypes.INTEGER, allowNull: false },
+  name: { type: DataTypes.STRING(50), allowNull: false },
+  x: { type: DataTypes.INTEGER, allowNull: false },
+  y: { type: DataTypes.INTEGER, allowNull: false },
+  z: { type: DataTypes.INTEGER, defaultValue: 0 },
+  zone: { type: DataTypes.STRING(50) },
+  rack: { type: DataTypes.STRING(50) },
+  section: { type: DataTypes.STRING(50) },
+  capacity: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 }, // 0 means unlimited
+}, { tableName: 'warehouse_slots', timestamps: true, underscored: true });
+
+// ─── STOCK POSITION ───────────────────────────────────
+const StockPosition = sequelize.define('StockPosition', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  item_id: { type: DataTypes.INTEGER, allowNull: false },
+  slot_id: { type: DataTypes.INTEGER, allowNull: false },
+  quantity: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+}, { tableName: 'stock_positions', timestamps: true, underscored: true });
+
+// ─── POSITION MOVEMENT ────────────────────────────────
+const PositionMovement = sequelize.define('PositionMovement', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  item_id: { type: DataTypes.INTEGER, allowNull: false },
+  from_slot_id: { type: DataTypes.INTEGER, allowNull: true },
+  to_slot_id: { type: DataTypes.INTEGER, allowNull: true },
+  quantity: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+  moved_by: { type: DataTypes.INTEGER, allowNull: false },
+  notes: { type: DataTypes.TEXT },
+}, { tableName: 'position_movements', timestamps: true, updatedAt: false, underscored: true });
+
 // ─── ASSOCIATIONS ────────────────────────────────────
 Item.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
 Item.belongsTo(Unit, { foreignKey: 'unit_id', as: 'unit' });
@@ -169,8 +211,23 @@ StockOutItem.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
 StockMutation.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
 StockMutation.belongsTo(User, { foreignKey: 'created_by', as: 'createdBy' });
 
+// New Associations
+WarehouseLayout.hasMany(WarehouseSlot, { foreignKey: 'layout_id', as: 'slots' });
+WarehouseSlot.belongsTo(WarehouseLayout, { foreignKey: 'layout_id' });
+
+WarehouseSlot.hasMany(StockPosition, { foreignKey: 'slot_id', as: 'positions' });
+StockPosition.belongsTo(WarehouseSlot, { foreignKey: 'slot_id' });
+StockPosition.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
+Item.hasMany(StockPosition, { foreignKey: 'item_id', as: 'positions' });
+
+PositionMovement.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
+PositionMovement.belongsTo(WarehouseSlot, { foreignKey: 'from_slot_id', as: 'fromSlot' });
+PositionMovement.belongsTo(WarehouseSlot, { foreignKey: 'to_slot_id', as: 'toSlot' });
+PositionMovement.belongsTo(User, { foreignKey: 'moved_by', as: 'movedBy' });
+
 module.exports = {
   sequelize,
   User, Category, Unit, Supplier, Customer, Item,
   StockIn, StockInItem, StockOut, StockOutItem, StockMutation,
+  WarehouseLayout, WarehouseSlot, StockPosition, PositionMovement
 };

@@ -3,19 +3,16 @@ function isAuthenticated(req, res, next) {
     res.locals.user = req.session.user;
     return next();
   }
-  return res.redirect('/login');
+  return res.status(401).json({ error: 'Not authenticated' });
 }
 
 function checkRole(...roles) {
   return (req, res, next) => {
     if (!req.session || !req.session.user) {
-      return res.redirect('/login');
+      return res.status(401).json({ error: 'Not authenticated' });
     }
     if (!roles.includes(req.session.user.role)) {
-      return res.status(403).render('errors/403', {
-        title: 'Akses Ditolak',
-        currentPath: req.path,
-      });
+      return res.status(403).json({ error: 'Akses ditolak. Anda tidak memiliki izin.' });
     }
     return next();
   };

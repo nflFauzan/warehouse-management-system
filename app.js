@@ -8,16 +8,8 @@ const { sequelize } = require('./models');
 const { setLocals } = require('./middleware/auth');
 const seed = require('./seeders/seed');
 
-const ejsLayouts = require('express-ejs-layouts');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// ─── VIEW ENGINE ─────────────────────────────────────
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-app.use(ejsLayouts);
-app.set('layout', 'layouts/main');
 
 // ─── MIDDLEWARE ──────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
@@ -35,18 +27,11 @@ app.use(flash());
 app.use(setLocals);
 
 // ─── ROUTES ──────────────────────────────────────────
-app.use('/', require('./routes/auth'));
-app.use('/', require('./routes/dashboard'));
-app.use('/master', require('./routes/master'));
-app.use('/transaksi', require('./routes/transaksi'));
-app.use('/stock', require('./routes/stock'));
-app.use('/laporan', require('./routes/laporan'));
-app.use('/settings', require('./routes/settings'));
-app.use('/api', require('./routes/api'));
+app.use('/api/v1', require('./routes/api_v1'));
 
 // ─── 404 ─────────────────────────────────────────────
 app.use((req, res) => {
-  res.status(404).render('errors/404', { title: 'Halaman Tidak Ditemukan', currentPath: req.path });
+  res.status(404).json({ error: 'Endpoint not found' });
 });
 
 // ─── START ───────────────────────────────────────────

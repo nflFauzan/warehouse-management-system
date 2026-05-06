@@ -9,16 +9,27 @@ class StockRepository {
     if (search) where.reference_no = { [Op.iLike]: `%${search}%` };
     if (status) where.status = status;
 
-    return await StockIn.findAndCountAll({
+    const result = await StockIn.findAndCountAll({
       where,
       include: [
         { model: Supplier, as: 'supplier', attributes: ['name'] },
         { model: User, as: 'receivedBy', attributes: ['name'] },
+        { model: StockInItem, as: 'items', attributes: ['id'] },
       ],
+      distinct: true,
       order: [['created_at', 'DESC']],
       limit,
       offset,
     });
+
+    result.rows = result.rows.map(row => {
+      const plain = row.toJSON();
+      plain.total_items = (plain.items || []).length;
+      delete plain.items;
+      return plain;
+    });
+
+    return result;
   }
 
   async findStockInById(id, includeItems = false) {
@@ -31,7 +42,7 @@ class StockRepository {
       include.push({
         model: StockInItem,
         as: 'items',
-        include: [{ model: Item, as: 'item', include: ['unit'] }]
+        include: [{ model: Item, as: 'item', include: ['unit', 'category'] }]
       });
     }
     return await StockIn.findByPk(id, { include });
@@ -52,16 +63,27 @@ class StockRepository {
     if (search) where.reference_no = { [Op.iLike]: `%${search}%` };
     if (status) where.status = status;
 
-    return await StockOut.findAndCountAll({
+    const result = await StockOut.findAndCountAll({
       where,
       include: [
         { model: Customer, as: 'customer', attributes: ['name'] },
         { model: User, as: 'issuedBy', attributes: ['name'] },
+        { model: StockOutItem, as: 'items', attributes: ['id'] },
       ],
+      distinct: true,
       order: [['created_at', 'DESC']],
       limit,
       offset,
     });
+
+    result.rows = result.rows.map(row => {
+      const plain = row.toJSON();
+      plain.total_items = (plain.items || []).length;
+      delete plain.items;
+      return plain;
+    });
+
+    return result;
   }
 
   async findStockOutById(id, includeItems = false) {
@@ -74,7 +96,7 @@ class StockRepository {
       include.push({
         model: StockOutItem,
         as: 'items',
-        include: [{ model: Item, as: 'item', include: ['unit'] }]
+        include: [{ model: Item, as: 'item', include: ['unit', 'category'] }]
       });
     }
     return await StockOut.findByPk(id, { include });
