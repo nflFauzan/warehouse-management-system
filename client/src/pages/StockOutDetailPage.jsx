@@ -31,12 +31,17 @@ export default function StockOutDetailPage() {
   const handleConfirm = async () => {
     if (!window.confirm('Konfirmasi? Stok akan langsung berkurang.')) return;
     setConfirming(true);
+    console.log('Attempting to confirm stock out:', id);
     try {
-      await stockOutService.confirm(id);
+      const res = await stockOutService.confirm(id);
+      console.log('Confirmation success:', res);
       addToast('Transaksi berhasil dikonfirmasi');
       fetchDetail();
     } catch (err) {
-      addToast(err.response?.data?.error || 'Gagal mengkonfirmasi transaksi', 'error');
+      console.error('Confirmation error:', err);
+      const msg = err.response?.data?.error || err.response?.data?.message || 'Gagal mengkonfirmasi transaksi';
+      addToast(msg, 'error');
+    } finally {
       setConfirming(false);
     }
   };

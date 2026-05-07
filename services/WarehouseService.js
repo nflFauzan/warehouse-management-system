@@ -1,9 +1,9 @@
-const { WarehouseLayout, WarehouseSlot, StockPosition, PositionMovement, Item, sequelize } = require('../models');
+const { WarehouseLayout, WarehouseSlot, StockPosition, PositionMovement, Item, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 class WarehouseService {
   async getActiveLayout() {
-    return await WarehouseLayout.findOne({
+    const layout = await WarehouseLayout.findOne({
       where: { is_active: true },
       include: [{
         model: WarehouseSlot,
@@ -11,10 +11,70 @@ class WarehouseService {
         include: [{
           model: StockPosition,
           as: 'positions',
-          include: [{ model: Item, as: 'item' }]
+          include: [{ 
+            model: Item, 
+            as: 'item',
+            include: ['unit']
+          }]
         }]
       }]
     });
+
+    if (!layout) return null;
+
+    // Enhance slots with current utilization
+    const enhancedSlots = layout.slots.map(slot => {
+      const plainSlot = slot.toJSON();
+      const currentQty = plainSlot.positions.reduce((sum, p) => sum + parseFloat(p.quantity), 0);
+      plainSlot.utilization = plainSlot.capacity > 0 ? (currentQty / plainSlot.capacity) * 100 : 0;
+      plainSlot.current_quantity = currentQty;
+      return plainSlot;
+    });
+
+    const result = layout.toJSON();
+    result.slots = enhancedSlots;
+
+    // Synchronization check: find items with stock not fully allocated to slots
+    const items = await Item.findAll({ where: { is_active: true } });
+    const unallocated = [];
+
+    for (const item of items) {
+      const placedStock = await StockPosition.sum('quantity', { where: { item_id: item.id } }) || 0;
+      const diff = parseFloat(item.current_stock) - parseFloat(placedStock);
+      if (Math.abs(diff) > 0.001) {
+        unallocated.push({
+          item_id: item.id,
+          name: item.name,
+          code: item.code,
+          diff: diff
+        });
+      }
+    }
+    result.unallocated = unallocated;
+
+    return result;
+  }
+
+  async getSlotHistory(slotId) {
+    const include = [
+      { model: Item, as: 'item', attributes: ['name', 'code'] },
+      { model: User, as: 'movedBy', attributes: ['name'] }
+    ];
+    const movements = await PositionMovement.findAll({
+      where: { [Op.or]: [{ from_slot_id: slotId }, { to_slot_id: slotId }] },
+      include,
+      order: [['created_at', 'DESC']],
+      limit: 20
+    });
+
+    return movements.map(m => ({
+      id: m.id,
+      date: m.created_at,
+      item_name: m.item?.name,
+      type: m.from_slot_id ? 'move' : 'in',
+      user_name: m.movedBy?.name,
+      notes: m.notes
+    }));
   }
 
   async saveLayout(data) {
@@ -107,12 +167,16 @@ class WarehouseService {
           await fromPos.update({ quantity: newQty }, { transaction: t });
         }
       } else {
-        // Initial placement - check if global stock is enough
         const item = await Item.findByPk(item_id, { transaction: t, lock: true });
+        if (!item) throw new Error('Barang tidak ditemukan dalam sistem.');
+
         // Calculate current placed stock
         const placedStock = await StockPosition.sum('quantity', { where: { item_id }, transaction: t }) || 0;
-        if (parseFloat(item.current_stock) < (parseFloat(placedStock) + qty)) {
-          throw new Error('Cannot place more stock than available in global inventory.');
+        const globalStock = parseFloat(item.current_stock);
+        const alreadyPlaced = parseFloat(placedStock);
+        
+        if (globalStock < (alreadyPlaced + qty)) {
+          throw new Error(`Stok global tidak mencukupi. Tersedia blm teralokasi: ${globalStock - alreadyPlaced}`);
         }
       }
 

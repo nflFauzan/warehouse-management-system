@@ -29,14 +29,21 @@ export default function StockInDetailPage() {
   };
 
   const handleConfirm = async () => {
+    // We'll keep the confirm but log it
     if (!window.confirm('Konfirmasi transaksi ini? Stok akan langsung diperbarui.')) return;
+    
     setConfirming(true);
+    console.log('Attempting to confirm stock in:', id);
     try {
-      await stockInService.confirm(id);
+      const res = await stockInService.confirm(id);
+      console.log('Confirmation success:', res);
       addToast('Transaksi berhasil dikonfirmasi');
       fetchDetail();
     } catch (err) {
-      addToast(err.response?.data?.error || 'Gagal mengkonfirmasi transaksi', 'error');
+      console.error('Confirmation error:', err);
+      const msg = err.response?.data?.error || err.response?.data?.message || 'Gagal mengkonfirmasi transaksi';
+      addToast(msg, 'error');
+    } finally {
       setConfirming(false);
     }
   };
@@ -97,7 +104,7 @@ export default function StockInDetailPage() {
         )}
         {stockIn.confirmed_at && (
           <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
-            Dikonfirmasi oleh <strong>{stockIn.confirmedBy ? stockIn.confirmedBy.name : '-'}</strong> pada {formatDate(stockIn.confirmed_at)}
+            Dikonfirmasi oleh <strong>{stockIn.confirmedBy ? stockIn.confirmedBy.name : '-'}</strong> pada {formatDateTime(stockIn.confirmed_at)}
           </div>
         )}
       </div>

@@ -98,7 +98,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen, mobileSidebar, se
           {/* ─ Logistik ─ */}
           <SectionHeader label="LOGISTIK" collapsed={!sidebarOpen} />
           <div className={`${sidebarOpen ? 'px-3' : 'px-2'} space-y-0.5`}>
-            <SidebarLink to="/warehouse/layout" icon={<IconWarehouse />} label="Layout Gudang" collapsed={!sidebarOpen} />
+            <SidebarLink to="/warehouse/layout" icon={<IconWarehouse />} label="Peta Gudang" collapsed={!sidebarOpen} />
           </div>
 
           {/* ─ Laporan (admin + owner only) ─ */}

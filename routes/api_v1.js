@@ -257,6 +257,7 @@ const WarehouseController = require('../controllers/WarehouseController');
 router.get('/warehouse/layout', isAuthenticated, WarehouseController.getLayout);
 router.post('/warehouse/layout', isAuthenticated, WarehouseController.saveLayout);
 router.get('/warehouse/slots', isAuthenticated, WarehouseController.getSlots);
+router.get('/warehouse/slots/:id/history', isAuthenticated, WarehouseController.getHistory);
 router.post('/warehouse/move', isAuthenticated, WarehouseController.moveStock);
 
 // Excel Reports
