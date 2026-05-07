@@ -26,7 +26,6 @@ import ReportStockPage from './pages/ReportStockPage';
 import ReportStockInPage from './pages/ReportStockInPage';
 import ReportStockOutPage from './pages/ReportStockOutPage';
 import WarehouseLayoutPage from './pages/WarehouseLayoutPage';
-import AdvancedReportsPage from './pages/AdvancedReportsPage';
 import ProfilePage from './pages/ProfilePage';
 import UserListPage from './pages/UserListPage';
 import UserFormPage from './pages/UserFormPage';
@@ -82,7 +81,6 @@ export default function App() {
           <Route path="/laporan/stok" element={<ReportStockPage />} />
           <Route path="/laporan/masuk" element={<ReportStockInPage />} />
           <Route path="/laporan/keluar" element={<ReportStockOutPage />} />
-          <Route path="/laporan/advanced" element={<AdvancedReportsPage />} />
 
           <Route path="/warehouse/layout" element={<WarehouseLayoutPage />} />
 

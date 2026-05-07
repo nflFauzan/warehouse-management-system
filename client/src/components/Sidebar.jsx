@@ -107,7 +107,6 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen, mobileSidebar, se
               <SectionHeader label="LAPORAN" collapsed={!sidebarOpen} />
               <div className={`${sidebarOpen ? 'px-3' : 'px-2'} space-y-0.5`}>
                 <SidebarLink to="/laporan/stok" icon={<IconReport />} label="Laporan Stok" collapsed={!sidebarOpen} />
-                <SidebarLink to="/laporan/advanced" icon={<IconExcel />} label="Export Excel" collapsed={!sidebarOpen} />
               </div>
             </>
           )}
