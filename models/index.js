@@ -163,6 +163,9 @@ const WarehouseSlot = sequelize.define('WarehouseSlot', {
   x: { type: DataTypes.INTEGER, allowNull: false },
   y: { type: DataTypes.INTEGER, allowNull: false },
   z: { type: DataTypes.INTEGER, defaultValue: 0 },
+  width: { type: DataTypes.INTEGER, defaultValue: 1 },
+  height: { type: DataTypes.INTEGER, defaultValue: 1 },
+  type: { type: DataTypes.STRING(20), defaultValue: 'storage' }, // storage, pathway, loading, unloading
   zone: { type: DataTypes.STRING(50) },
   rack: { type: DataTypes.STRING(50) },
   section: { type: DataTypes.STRING(50) },

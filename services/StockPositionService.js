@@ -11,7 +11,7 @@ class StockPositionService {
     // Use ItemRepository for the filtered items list
     // Wait, ItemRepository uses 'unit' and 'category' aliases which matches what we need
     const { count, rows: items } = await ItemRepository.findAndCountAll({
-      search, category_id, status, limit, offset
+      search, category_id, status, limit, offset, includePositions: true
     });
 
     const categories = await Category.findAll({ order: [['name', 'ASC']] });

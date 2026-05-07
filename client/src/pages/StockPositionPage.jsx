@@ -117,6 +117,7 @@ export default function StockPositionPage() {
               <th className="text-left py-3 px-4">Kode</th>
               <th className="text-left py-3 px-4">Nama Barang</th>
               <th className="text-left py-3 px-4">Kategori</th>
+              <th className="text-left py-3 px-4">Lokasi</th>
               <th className="text-right py-3 px-4">Stok</th>
               <th className="text-right py-3 px-4">Min.</th>
               <th className="text-left py-3 px-4 w-40">Level</th>
@@ -126,9 +127,9 @@ export default function StockPositionPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="8" className="text-center py-8 text-gray-400">Memuat...</td></tr>
+              <tr><td colSpan="10" className="text-center py-8 text-gray-400">Memuat...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan="8" className="text-center py-8 text-gray-400">Tidak ada data</td></tr>
+              <tr><td colSpan="10" className="text-center py-8 text-gray-400">Tidak ada data</td></tr>
             ) : (
               items.map(item => {
                 const st = getItemStatus(item);
@@ -136,11 +137,29 @@ export default function StockPositionPage() {
                 const cur = parseFloat(item.current_stock) || 0;
                 const pct = min > 0 ? Math.min(100, (cur / min) * 50) : 100;
                 const barColor = pct >= 50 ? 'bg-green-600' : (pct >= 25 ? 'bg-yellow-500' : 'bg-red-600');
+                
+                // Get unique locations
+                const locations = item.positions?.map(p => p.slot?.name).filter(Boolean) || [];
+                const uniqueLocs = [...new Set(locations)];
+
                 return (
                   <tr key={item.id} className={`border-b border-gray-50 hover:bg-gray-50/50 ${st === 'critical' ? 'bg-[#FFF5F5]' : st === 'empty' ? 'bg-[#FFFBF0]' : ''}`}>
                     <td className="py-3 px-4 font-mono text-xs font-medium">{item.code}</td>
                     <td className="py-3 px-4 font-medium">{item.name}</td>
                     <td className="py-3 px-4 text-gray-500">{item.category ? item.category.name : '-'}</td>
+                    <td className="py-3 px-4">
+                      {uniqueLocs.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {uniqueLocs.map((loc, idx) => (
+                            <span key={idx} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold border border-blue-100">
+                              {loc}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-300 italic text-[10px]">Belum dialokasi</span>
+                      )}
+                    </td>
                     <td className={`py-3 px-4 text-right font-mono font-bold ${st === 'critical' ? 'text-danger' : ''}`}>
                       {formatNumber(item.current_stock)} <span className="text-gray-400 font-normal text-xs">{item.unit ? item.unit.abbr : ''}</span>
                     </td>

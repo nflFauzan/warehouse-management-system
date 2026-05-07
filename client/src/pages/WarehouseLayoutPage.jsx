@@ -1,12 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useToast } from '../contexts/ToastContext';
 import { 
   Save, Plus, Trash2, Box, Info, Move, 
-  Map as MapIcon, Layers, Activity, Search,
-  ChevronRight, ArrowRightLeft, Clock, LayoutGrid
+  LayoutGrid, MousePointer2, Grab, Check, X,
+  Hammer, Package, Zap, ChevronRight, Layers,
+  MapPin, Wind, Sparkles, Database, BarChart3,
+  Truck, Warehouse, ArrowUpRight, History,
+  Maximize2, Minimize2, Settings2, Activity
 } from 'lucide-react';
 import dayjs from 'dayjs';
+
+const GRID_SIZE = 15; // Increased grid size for more detail
+const CELL_SIZE = 48; // Smaller cells for better overview
 
 const WarehouseLayoutPage = () => {
   const { addToast } = useToast();
@@ -14,22 +20,26 @@ const WarehouseLayoutPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [slotHistory, setSlotHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [movingStock, setMovingStock] = useState(null);
-  const [allocatingStock, setAllocatingStock] = useState(false); // For adding items from unallocated
-  const [searchQuery, setSearchQuery] = useState('');
-  const [allSlots, setAllSlots] = useState([]); // For move destination
+  const [draggingSlot, setDraggingSlot] = useState(null);
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [hoveredCell, setHoveredCell] = useState(null);
+  const [tempSlots, setTempSlots] = useState([]);
+  const [stats, setStats] = useState({ totalItems: 0, utilization: 0, totalCapacity: 0, occupiedQty: 0 });
 
   useEffect(() => {
     fetchLayout();
-    fetchAllSlots();
   }, []);
 
   const fetchLayout = async () => {
+    setLoading(true);
     try {
       const res = await axios.get('/api/v1/warehouse/layout');
       if (res.data) {
         setLayout(res.data);
+        setTempSlots(res.data.slots || []);
+        calculateStats(res.data.slots || []);
       }
       setLoading(false);
     } catch (err) {
@@ -38,577 +48,615 @@ const WarehouseLayoutPage = () => {
     }
   };
 
-  const fetchAllSlots = async () => {
-    try {
-      const res = await axios.get('/api/v1/warehouse/slots');
-      setAllSlots(res.data || []);
-    } catch (err) {
-      console.error(err);
-    }
+  const calculateStats = (slots) => {
+    const totalCap = slots.reduce((sum, s) => sum + parseFloat(s.capacity || 0), 0) || 0;
+    const totalQty = slots.reduce((sum, s) => sum + parseFloat(s.current_quantity || 0), 0) || 0;
+    setStats({
+      totalItems: slots.filter(s => s.type === 'storage').length,
+      totalCapacity: totalCap,
+      occupiedQty: totalQty,
+      utilization: totalCap > 0 ? (totalQty / totalCap) * 100 : 0
+    });
   };
 
-  const fetchSlotHistory = async (slotId) => {
-    try {
-      const res = await axios.get(`/api/v1/warehouse/slots/${slotId}/history`);
-      setSlotHistory(res.data);
-    } catch (err) {
-      console.error('Failed to fetch history', err);
-    }
-  };
-
-  const handleSelectSlot = (slot) => {
-    if (isEditing) {
-      // In edit mode, selection just sets the slot to edit its metadata
-      setSelectedSlot(slot);
-      return;
-    }
-    setSelectedSlot(slot);
-    if (slot && slot.id) {
-      fetchSlotHistory(slot.id);
+  useEffect(() => {
+    if (selectedSlot && !String(selectedSlot.id).startsWith('temp-')) {
+      fetchSlotHistory(selectedSlot.id);
     } else {
       setSlotHistory([]);
     }
-  };
+  }, [selectedSlot]);
 
-  const handleUpdateSlot = async (e) => {
-    e.preventDefault();
+  const fetchSlotHistory = async (id) => {
+    setLoadingHistory(true);
     try {
-      // If it's a new slot (id is temp), we just add it to layout and save the whole layout
-      let updatedSlots;
-      if (String(selectedSlot.id).startsWith('temp-')) {
-        updatedSlots = [...layout.slots, { ...selectedSlot, id: null }]; // Remove temp ID for backend
-      } else {
-        updatedSlots = layout.slots.map(s => s.id === selectedSlot.id ? selectedSlot : s);
-      }
-      
-      const newLayout = { ...layout, slots: updatedSlots };
-      await axios.post('/api/v1/warehouse/layout', newLayout);
-      addToast('Informasi slot berhasil disimpan');
-      fetchLayout(); // Refresh from server to get real IDs
+      const res = await axios.get(`/api/v1/warehouse/slots/${id}/history`);
+      setSlotHistory(res.data || []);
     } catch (err) {
-      addToast('Gagal menyimpan slot', 'error');
+      console.error('Failed to fetch history', err);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
-  const handleAddSlot = () => {
+  // --- COLLISION LOGIC ---
+  const isOccupied = (x, y, w = 1, h = 1, excludeId = null) => {
+    return tempSlots.some(s => {
+      if (s.id === excludeId) return false;
+      const sx = s.x, sy = s.y, sw = s.width || 1, sh = s.height || 1;
+      // Overlap check
+      return (x < sx + sw && x + w > sx && y < sy + sh && y + h > sy);
+    });
+  };
+
+  const handleGridDrop = async (x, y) => {
+    if (draggingSlot) {
+      if (isOccupied(x, y, draggingSlot.width, draggingSlot.height, draggingSlot.id)) {
+        return addToast('Area ini sudah terisi!', 'warning');
+      }
+      
+      setTempSlots(prev => prev.map(s => s.id === draggingSlot.id ? { ...s, x, y } : s));
+      setDraggingSlot(null);
+      setHoveredCell(null);
+    } else if (draggedItem) {
+      // Find which slot contains this (x,y)
+      const slot = tempSlots.find(s => {
+        const sw = s.width || 1, sh = s.height || 1;
+        return x >= s.x && x < s.x + sw && y >= s.y && y < s.y + sh;
+      });
+
+      if (slot && slot.type === 'storage') {
+        if (String(slot.id).startsWith('temp-')) return addToast('Simpan denah dulu sebelum alokasi barang!', 'warning');
+        try {
+          await axios.post('/api/v1/warehouse/move', {
+            item_id: draggedItem.item_id,
+            to_slot_id: slot.id,
+            quantity: draggedItem.diff,
+            notes: 'Alokasi cepat via drag & drop'
+          });
+          addToast(`Berhasil! ${draggedItem.name} masuk ke ${slot.name}`, 'success');
+          fetchLayout();
+        } catch (err) {
+          addToast(err.response?.data?.message || 'Gagal alokasi', 'error');
+        }
+      }
+      setDraggedItem(null);
+      setHoveredCell(null);
+    }
+  };
+
+  const saveWorld = async () => {
+    try {
+      const slotsToSave = tempSlots.map(s => ({
+        ...s,
+        id: String(s.id).startsWith('temp-') ? null : s.id
+      }));
+      const payload = layout || { name: 'Gudang Utama', rows: GRID_SIZE, cols: GRID_SIZE };
+      await axios.post('/api/v1/warehouse/layout', { ...payload, slots: slotsToSave });
+      addToast('Layout gudang berhasil diperbarui!', 'success');
+      setIsEditing(false);
+      fetchLayout();
+    } catch (err) { addToast('Gagal simpan: ' + (err.response?.data?.message || err.message), 'error'); }
+  };
+
+  const buildNewSlot = (type = 'storage') => {
+    // Find empty spot
+    let fx = 0, fy = 0;
+    let found = false;
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (!isOccupied(j, i)) {
+          fx = j; fy = i; found = true; break;
+        }
+      }
+      if (found) break;
+    }
+
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const rowLetter = letters[Math.floor(tempSlots.length / 5)] || 'Z';
+    const slotNum = (tempSlots.length % 5) + 1;
+    const defaultName = type === 'storage' ? `${rowLetter}-${slotNum}` : `${type.toUpperCase()}-${tempSlots.length + 1}`;
+
     const newSlot = {
       id: `temp-${Date.now()}`,
-      name: 'NEW-SLOT',
-      zone: 'ZONA BARU',
-      capacity: 1000,
-      x: 0,
-      y: 0,
+      name: defaultName,
+      type: type,
+      zone: 'GENERAL',
+      capacity: type === 'storage' ? 1000 : 0,
+      width: type === 'pathway' ? 1 : 2,
+      height: type === 'pathway' ? 1 : 1,
+      x: fx, y: fy,
       current_quantity: 0,
       utilization: 0,
       positions: []
     };
+    setTempSlots([...tempSlots, newSlot]);
     setSelectedSlot(newSlot);
-    // Don't add to layout yet, let user edit and click save
   };
 
-  const handleMoveStock = async (e) => {
-    e.preventDefault();
-    try {
-      const formData = new FormData(e.target);
-      const data = {
-        item_id: movingStock.item_id,
-        from_slot_id: movingStock.from_slot_id || null, // null means unallocated
-        to_slot_id: formData.get('to_slot_id') || movingStock.to_slot_id,
-        quantity: formData.get('quantity'),
-        notes: formData.get('notes')
-      };
-      await axios.post('/api/v1/warehouse/move', data);
-      addToast('Barang berhasil dialokasikan');
-      setMovingStock(null);
-      setAllocatingStock(false);
-      fetchLayout();
-    } catch (err) {
-      addToast(err.response?.data?.message || 'Gagal mengalokasikan barang', 'error');
+  const destroySlot = (id) => {
+    const slot = tempSlots.find(s => s.id === id);
+    if (slot && slot.current_quantity > 0) return addToast('Slot masih berisi stok! Kosongkan dulu.', 'error');
+    setTempSlots(prev => prev.filter(s => s.id !== id));
+    setSelectedSlot(null);
+  };
+
+  const updateSelectedSlot = (updates) => {
+    if (!selectedSlot) return;
+    const updated = { ...selectedSlot, ...updates };
+    
+    // If moving or resizing, check for collisions
+    if (updates.x !== undefined || updates.y !== undefined || updates.width !== undefined || updates.height !== undefined) {
+      if (isOccupied(updated.x, updated.y, updated.width, updated.height, selectedSlot.id)) {
+        return addToast('Tidak bisa mengubah ukuran/posisi: Area terhalang!', 'warning');
+      }
     }
+
+    setTempSlots(prev => prev.map(s => s.id === selectedSlot.id ? updated : s));
+    setSelectedSlot(updated);
   };
 
-  const stats = useMemo(() => {
-    if (!layout || !layout.slots) return { total: 0, occupied: 0, utilization: 0 };
-    const total = layout.slots.length;
-    const occupied = layout.slots.filter(s => s.current_quantity > 0).length;
-    const totalCapacity = layout.slots.reduce((sum, s) => sum + parseFloat(s.capacity || 0), 0);
-    const totalCurrent = layout.slots.reduce((sum, s) => sum + parseFloat(s.current_quantity || 0), 0);
-    const utilization = totalCapacity > 0 ? (totalCurrent / totalCapacity) * 100 : 0;
-    
-    return { total, occupied, utilization };
-  }, [layout]);
+  // --- RENDER HELPERS ---
+  const getOccupancyColor = (util) => {
+    if (util === 0) return 'bg-gray-100 text-gray-400 border-gray-200';
+    if (util < 50) return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+    if (util < 90) return 'bg-amber-50 text-amber-600 border-amber-200';
+    return 'bg-rose-50 text-rose-600 border-rose-200';
+  };
 
-  const zones = useMemo(() => {
-    if (!layout || !layout.slots) return {};
-    const grouped = {};
-    layout.slots.forEach(slot => {
-      const z = slot.zone || 'Default';
-      if (!grouped[z]) grouped[z] = [];
-      grouped[z].push(slot);
-    });
-    // Sort slots within zones by x, then y
-    Object.keys(grouped).forEach(z => {
-      grouped[z].sort((a, b) => a.x - b.x || a.y - b.y);
-    });
-    return grouped;
-  }, [layout]);
-
-  const getSlotColor = (slot) => {
-    if (selectedSlot?.id === slot.id) return 'bg-blue-600 text-white ring-4 ring-blue-100 border-blue-700 z-10';
-    if (slot.current_quantity === 0) return 'bg-white text-gray-400 border-gray-200 hover:border-blue-400';
+  const getSlotBaseStyle = (slot) => {
+    const isSelected = selectedSlot?.id === slot.id;
     
-    const util = slot.utilization;
-    if (util >= 90) return 'bg-red-500 text-white border-red-600 hover:brightness-110';
-    if (util >= 50) return 'bg-yellow-400 text-gray-900 border-yellow-500 hover:brightness-110';
-    return 'bg-emerald-400 text-white border-emerald-500 hover:brightness-110';
+    let base = "absolute transition-all duration-200 rounded-lg border-2 flex flex-col items-center justify-center p-1 text-center overflow-hidden ";
+    
+    if (slot.type === 'storage') {
+      const util = slot.utilization || 0;
+      if (util === 0) base += "bg-gray-50 border-gray-200 text-gray-400";
+      else if (util < 50) base += "bg-emerald-50 border-emerald-400 text-emerald-700 shadow-sm shadow-emerald-100";
+      else if (util < 90) base += "bg-amber-50 border-amber-400 text-amber-700 shadow-sm shadow-amber-100";
+      else base += "bg-rose-50 border-rose-500 text-rose-700 shadow-sm shadow-rose-100";
+    } else if (slot.type === 'pathway') {
+      base += "bg-gray-200/50 border-transparent text-gray-400 border-dashed border-gray-300";
+    } else if (slot.type === 'loading') {
+      base += "bg-blue-50 border-blue-400 text-blue-700";
+    } else if (slot.type === 'unloading') {
+      base += "bg-indigo-50 border-indigo-400 text-indigo-700";
+    }
+
+    if (isSelected) base += " ring-4 ring-blue-500/30 z-30 scale-[1.02] shadow-xl";
+    else base += " z-10 hover:z-20 hover:scale-[1.01] cursor-pointer";
+
+    if (isEditing) base += " cursor-grab active:cursor-grabbing";
+
+    return base;
   };
 
   if (loading) return (
-    <div className="h-[400px] flex flex-col items-center justify-center gap-4">
-      <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
-      <p className="text-gray-400 font-medium">Memuat Visualisasi Gudang...</p>
-    </div>
-  );
-
-  if (!layout) return (
-    <div className="card text-center py-12">
-      <LayoutGrid size={48} className="mx-auto text-gray-200 mb-4" />
-      <h2 className="text-xl font-bold text-gray-700">Layout Belum Dibuat</h2>
-      <p className="text-gray-400 mt-1 max-w-sm mx-auto">Silakan hubungi administrator untuk melakukan konfigurasi denah gudang pertama kali.</p>
+    <div className="h-screen -mt-20 flex flex-col items-center justify-center bg-white">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <p className="mt-4 text-gray-500 font-medium">Memuat Layout Operasional...</p>
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header & Stats */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-dark-gray">Peta Gudang</h1>
-          <p className="text-sm text-gray-400 mt-1">Visualisasi lokasi penyimpanan barang untuk memudahkan pencarian dan pengelolaan stok.</p>
+    <div className="h-[calc(100vh-120px)] flex flex-col gap-4">
+      
+      {/* Header Panel */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+            <Warehouse size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 leading-none">Manajemen Layout Gudang</h1>
+            <p className="text-sm text-gray-500 mt-1">Operasional & Visualisasi Stok Real-time</p>
+          </div>
+          
+          <div className="h-10 w-px bg-gray-100 mx-4" />
+          
+          <div className="flex gap-6">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Rak</span>
+              <span className="text-sm font-bold text-gray-800">{stats.totalItems} Units</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Utilisasi Global</span>
+              <span className={`text-sm font-bold ${stats.utilization > 90 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                {stats.utilization.toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Kapasitas Terpakai</span>
+              <span className="text-sm font-bold text-gray-800">{stats.occupiedQty} / {stats.totalCapacity} KG</span>
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setIsEditing(!isEditing)} 
-            className={`btn-sm flex items-center gap-2 px-4 py-2 rounded-lg border font-bold transition-all ${isEditing ? 'bg-orange-50 border-orange-200 text-orange-600' : 'bg-white border-gray-200 text-gray-500 hover:text-dark-gray'}`}
-          >
-            {isEditing ? <Save size={14} /> : <LayoutGrid size={14} />}
-            {isEditing ? 'Keluar Mode Edit' : 'Edit Denah'}
-          </button>
-          <button onClick={fetchLayout} className="btn-ghost btn-sm">
-            <Activity size={14} /> Refresh Data
-          </button>
+
+        <div className="flex gap-3">
+          {isEditing ? (
+            <>
+              <button onClick={() => { setIsEditing(false); fetchLayout(); }} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-all">
+                Batal
+              </button>
+              <button onClick={saveWorld} className="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all flex items-center gap-2">
+                <Check size={18} /> Simpan Layout
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setIsEditing(true)} className="px-6 py-2 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-all flex items-center gap-2">
+              <Hammer size={18} /> Edit Mode
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatItem 
-          label="Total Lokasi" 
-          value={stats.total} 
-          sub="Titik Slot" 
-          icon={<LayoutGrid className="text-blue-600" />} 
-          color="bg-blue-50"
-        />
-        <StatItem 
-          label="Lokasi Terisi" 
-          value={stats.occupied} 
-          sub="Titik Aktif" 
-          icon={<Box className="text-amber-500" />} 
-          color="bg-amber-50"
-        />
-        <StatItem 
-          label="Utilisasi Gudang" 
-          value={`${stats.utilization.toFixed(1)}%`} 
-          sub="Kapasitas Total" 
-          icon={<Activity className="text-emerald-500" />} 
-          color="bg-emerald-50"
-        />
-        <StatItem 
-          label="Lokasi Terpilih" 
-          value={selectedSlot ? selectedSlot.name : '-'} 
-          sub={selectedSlot ? selectedSlot.zone : 'Klik pada peta'} 
-          icon={<MapIcon className="text-purple-500" />} 
-          color="bg-purple-50"
-        />
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="flex-1 flex gap-6 overflow-hidden">
         
-        {/* Warehouse Map */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          <div className="card min-h-[500px] relative overflow-hidden bg-gray-50/50">
-            {/* Legend inside map */}
-            <div className="absolute top-4 right-4 flex gap-4 bg-white/80 backdrop-blur px-3 py-2 rounded-lg border border-gray-100 text-[10px] font-bold z-10 shadow-sm">
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-white border border-gray-200 rounded-sm"></div> Kosong</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-emerald-400 rounded-sm"></div> Aman</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-yellow-400 rounded-sm"></div> Hampir Penuh</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-red-500 rounded-sm"></div> Penuh</div>
-            </div>
-
-            {/* Entrance labels */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 px-4 py-1 bg-gray-200 text-[9px] font-bold text-gray-500 rounded-b uppercase tracking-tighter">
-              PINTU MASUK / KELUAR
-            </div>
-            
-            {/* Zones rendering */}
-            <div className="p-8 mt-4 space-y-10">
-              {Object.keys(zones).map(zoneName => (
-                <div key={zoneName} className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">{zoneName}</span>
-                    <div className="h-px flex-1 bg-gray-200"></div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {zones[zoneName].map(slot => (
-                      <div
-                        key={slot.id}
-                        onClick={() => handleSelectSlot(slot)}
-                        className={`
-                          group relative w-[72px] h-[40px] rounded border transition-all duration-200 cursor-pointer
-                          flex flex-col items-center justify-center shadow-sm
-                          ${getSlotColor(slot)}
-                        `}
-                      >
-                        <span className="text-[10px] font-bold">{slot.name}</span>
-                        {/* Fill bar for non-empty slots */}
-                        {slot.current_quantity > 0 && selectedSlot?.id !== slot.id && (
-                          <div className="absolute bottom-1 left-1.5 right-1.5 h-[2px] bg-black/10 rounded-full overflow-hidden">
-                            <div className="h-full bg-black/30" style={{ width: `${slot.utilization}%` }}></div>
-                          </div>
-                        )}
-                        
-                        {/* Tooltip on hover */}
-                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                          <div className="bg-gray-900 text-white text-[10px] px-2 py-1 rounded shadow-xl whitespace-nowrap">
-                            {slot.name}: {slot.utilization.toFixed(0)}% Kapasitas
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {/* Ghost slot for visual editing cue */}
-                    {isEditing && selectedSlot && String(selectedSlot.id).startsWith('temp-') && selectedSlot.zone === zoneName && (
-                      <div className="w-[72px] h-[40px] rounded border-2 border-dashed border-orange-400 bg-orange-50 flex items-center justify-center animate-pulse">
-                        <span className="text-[10px] font-bold text-orange-600">NEW</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Area Bongkar Muat indicator */}
-            <div className="absolute left-0 top-1/2 -rotate-90 origin-left -translate-y-1/2 px-4 py-1 bg-gray-200 text-[9px] font-bold text-gray-500 rounded-b uppercase tracking-tighter">
-              AREA BONGKAR MUAT
+        {/* Main Warehouse Map */}
+        <div className="flex-1 bg-gray-50 rounded-3xl border-2 border-gray-100 relative overflow-hidden flex flex-col">
+          
+          {/* Map Controls / Legend */}
+          <div className="absolute top-4 left-4 z-40 flex flex-col gap-2">
+            <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase">
+                <div className="w-3 h-3 rounded bg-gray-100 border border-gray-200" /> Kosong
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase">
+                <div className="w-3 h-3 rounded bg-emerald-100 border border-emerald-400" /> {'< 50%'}
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase">
+                <div className="w-3 h-3 rounded bg-amber-100 border border-amber-400" /> {'50% - 90%'}
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase">
+                <div className="w-3 h-3 rounded bg-rose-100 border border-rose-500" /> Penuh
+              </div>
             </div>
           </div>
 
-          {/* Sync Warning */}
-          {layout.unallocated && layout.unallocated.length > 0 && (
-            <div className="alert-critical">
-              <div className="flex items-start gap-3">
-                <Info size={18} className="mt-0.5" />
-                <div>
-                  <h4 className="font-bold text-sm">Ketidaksinkronan Posisi Barang</h4>
-                  <p className="text-xs mt-1 opacity-80">Beberapa barang terdeteksi memiliki stok di sistem namun belum dialokasikan ke posisi gudang manapun:</p>
-                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {layout.unallocated.map(item => (
-                      <div key={item.item_id} className="bg-white/50 p-2 rounded text-[11px] flex justify-between items-center">
-                        <span className="font-medium">{item.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-danger">{item.diff > 0 ? '+' : ''}{item.diff}</span>
-                          <button 
-                            onClick={() => {
-                              setAllocatingStock(true);
-                              setMovingStock({ item_id: item.item_id, item_name: item.name, max_qty: item.diff, to_slot_id: selectedSlot?.id || '' });
-                            }}
-                            className="bg-blue-600 text-white px-2 py-0.5 rounded text-[9px] hover:bg-blue-700"
-                          >
-                            ALOKASIKAN
-                          </button>
+          {/* The Grid Container */}
+          <div className="flex-1 overflow-auto p-12 flex items-start justify-center custom-scrollbar">
+            <div 
+              className="relative bg-white shadow-2xl rounded-sm"
+              style={{
+                width: `${GRID_SIZE * CELL_SIZE}px`,
+                height: `${GRID_SIZE * CELL_SIZE}px`,
+                backgroundImage: `
+                  linear-gradient(to right, #f1f5f9 1px, transparent 1px),
+                  linear-gradient(to bottom, #f1f5f9 1px, transparent 1px)
+                `,
+                backgroundSize: `${CELL_SIZE}px ${CELL_SIZE}px`
+              }}
+              onDragOver={(e) => e.preventDefault()}
+            >
+              {/* Drop Grid Layer */}
+              {isEditing && Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
+                const x = i % GRID_SIZE;
+                const y = Math.floor(i / GRID_SIZE);
+                const isHover = hoveredCell?.x === x && hoveredCell?.y === y;
+                return (
+                  <div 
+                    key={`grid-${x}-${y}`}
+                    className={`absolute border border-transparent transition-colors ${isHover ? 'bg-blue-500/10' : ''}`}
+                    style={{
+                      left: x * CELL_SIZE,
+                      top: y * CELL_SIZE,
+                      width: CELL_SIZE,
+                      height: CELL_SIZE
+                    }}
+                    onDragOver={(e) => { e.preventDefault(); setHoveredCell({ x, y }); }}
+                    onDrop={() => handleGridDrop(x, y)}
+                  />
+                );
+              })}
+
+              {/* Zones & Lanes (Visual Only) */}
+              <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-40">
+                <div className="absolute top-0 left-0 w-full h-8 bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600 uppercase tracking-widest border-b border-blue-200">
+                  <Truck size={12} className="mr-2" /> Area Bongkar Muat (Inbound)
+                </div>
+                <div className="absolute bottom-0 left-0 w-full h-8 bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600 uppercase tracking-widest border-t border-indigo-200">
+                  <Truck size={12} className="mr-2" /> Area Muat Barang (Outbound)
+                </div>
+              </div>
+
+              {/* The Slots */}
+              {tempSlots.map(slot => (
+                <div
+                  key={slot.id}
+                  draggable={isEditing}
+                  onDragStart={() => setDraggingSlot(slot)}
+                  onClick={() => setSelectedSlot(slot)}
+                  className={getSlotBaseStyle(slot)}
+                  style={{
+                    left: slot.x * CELL_SIZE + 2,
+                    top: slot.y * CELL_SIZE + 2,
+                    width: (slot.width || 1) * CELL_SIZE - 4,
+                    height: (slot.height || 1) * CELL_SIZE - 4
+                  }}
+                >
+                  {slot.type === 'storage' ? (
+                    <>
+                      <span className="text-[10px] font-black leading-none mb-1 truncate w-full px-1">{slot.name}</span>
+                      <div className="w-full flex-1 flex flex-col items-center justify-center">
+                        <span className="text-[9px] font-bold opacity-70 leading-none">{Math.round(slot.utilization || 0)}%</span>
+                        <div className="w-4/5 h-1 bg-black/5 rounded-full mt-1 overflow-hidden">
+                          <div 
+                            className={`h-full transition-all duration-500 ${
+                              slot.utilization > 90 ? 'bg-rose-500' : 
+                              slot.utilization > 50 ? 'bg-amber-500' : 'bg-emerald-500'
+                            }`}
+                            style={{ width: `${slot.utilization}%` }}
+                          />
                         </div>
                       </div>
-                    ))}
-                  </div>
+                      <span className="text-[8px] font-bold opacity-60 mt-1">{Math.round(slot.current_quantity)} KG</span>
+                    </>
+                  ) : (
+                    <div className="opacity-40">
+                      {slot.type === 'pathway' ? <Move size={14} /> : 
+                       slot.type === 'loading' ? <ArrowUpRight size={14} /> : <ArrowUpRight className="rotate-180" size={14} />}
+                      <span className="text-[8px] font-black uppercase mt-1 block">{slot.name}</span>
+                    </div>
+                  )}
                 </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom Unallocated Panel */}
+          <div className="bg-white border-t border-gray-100 p-4">
+            <div className="flex items-center justify-between mb-3 px-2">
+              <div className="flex items-center gap-2">
+                <Box size={16} className="text-gray-400" />
+                <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Antrian Alokasi Barang</h4>
+              </div>
+              <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {layout?.unallocated?.length || 0} Item Menunggu
+              </span>
+            </div>
+            
+            <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+              {layout?.unallocated?.map(item => (
+                <div 
+                  key={item.item_id}
+                  draggable
+                  onDragStart={() => setDraggedItem(item)}
+                  className="flex-shrink-0 w-48 bg-gray-50 p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all cursor-grab active:cursor-grabbing group"
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <p className="text-[9px] font-bold text-blue-500 uppercase leading-none">{item.code}</p>
+                    <span className="text-[10px] font-black text-gray-700">{item.diff} unit</span>
+                  </div>
+                  <p className="text-xs font-bold text-gray-800 truncate">{item.name}</p>
+                </div>
+              ))}
+              {(!layout?.unallocated || layout.unallocated.length === 0) && (
+                <div className="w-full py-4 text-center text-gray-300 text-xs font-medium italic">
+                  Semua stok telah teralokasi ke rak.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Panel */}
+        <div className="w-80 flex flex-col gap-4 overflow-hidden">
+          
+          {/* Edit Palette */}
+          {isEditing && (
+            <div className="bg-gray-900 rounded-3xl p-5 shadow-lg flex flex-col gap-4">
+              <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                <Plus size={14} className="text-blue-400" /> Tambah Elemen
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => buildNewSlot('storage')} className="flex flex-col items-center gap-2 p-3 bg-gray-800 rounded-2xl border border-gray-700 hover:border-blue-500 transition-all group">
+                  <Database size={18} className="text-blue-400 group-hover:scale-110 transition-transform" />
+                  <span className="text-[9px] font-bold text-white uppercase">Rak Stok</span>
+                </button>
+                <button onClick={() => buildNewSlot('pathway')} className="flex flex-col items-center gap-2 p-3 bg-gray-800 rounded-2xl border border-gray-700 hover:border-gray-500 transition-all group">
+                  <Move size={18} className="text-gray-400 group-hover:scale-110 transition-transform" />
+                  <span className="text-[9px] font-bold text-white uppercase">Jalan/Lane</span>
+                </button>
+                <button onClick={() => buildNewSlot('loading')} className="flex flex-col items-center gap-2 p-3 bg-gray-800 rounded-2xl border border-gray-700 hover:border-blue-400 transition-all group">
+                  <Truck size={18} className="text-blue-300 group-hover:scale-110 transition-transform" />
+                  <span className="text-[9px] font-bold text-white uppercase">Inbound</span>
+                </button>
+                <button onClick={() => buildNewSlot('unloading')} className="flex flex-col items-center gap-2 p-3 bg-gray-800 rounded-2xl border border-gray-700 hover:border-indigo-400 transition-all group">
+                  <Truck size={18} className="text-indigo-300 group-hover:scale-110 transition-transform rotate-180" />
+                  <span className="text-[9px] font-bold text-white uppercase">Outbound</span>
+                </button>
               </div>
             </div>
           )}
-        </div>
 
-        {/* Right Detail Panel */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <div className="card sticky top-6">
-            {!selectedSlot ? (
-              <div className="py-10 text-center flex flex-col items-center">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                  <MapIcon size={24} className="text-gray-300" />
-                </div>
-                <h3 className="font-bold text-gray-700">Detail Lokasi</h3>
-                <p className="text-xs text-gray-400 mt-1 mb-4">Pilih salah satu slot di peta untuk melihat detail isi barang dan riwayat aktivitas.</p>
-                {isEditing && (
-                  <button onClick={handleAddSlot} className="btn-primary btn-sm flex items-center gap-1">
-                    <Plus size={14} /> Tambah Lokasi Baru
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">Lokasi</span>
-                    <h2 className="text-2xl font-black text-dark-gray leading-tight">{selectedSlot.name}</h2>
-                    <p className="text-xs font-medium text-blue-600">{selectedSlot.zone}</p>
-                  </div>
-                  <div className={`px-2 py-1 rounded text-[10px] font-bold border ${selectedSlot.current_quantity > 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
-                    {selectedSlot.current_quantity > 0 ? 'TERISI' : 'KOSONG'}
-                  </div>
-                </div>
-
-                {/* Capacity Bar */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="font-bold text-gray-500">Kapasitas Lokasi</span>
-                    <span className="font-bold text-dark-gray">{selectedSlot.utilization.toFixed(0)}%</span>
-                  </div>
-                  <div className="h-3 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
-                    <div 
-                      className={`h-full transition-all duration-500 rounded-full ${
-                        selectedSlot.utilization >= 90 ? 'bg-red-500' : 
-                        selectedSlot.utilization >= 50 ? 'bg-yellow-400' : 'bg-emerald-400'
-                      }`}
-                      style={{ width: `${selectedSlot.utilization}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-[10px] text-gray-400 font-medium">
-                    <span>Kapasitas: {selectedSlot.capacity}</span>
-                    <span>Terisi: {selectedSlot.current_quantity}</span>
-                  </div>
-                </div>
-
-                {/* Items in this slot */}
-                <div className="pt-4 border-t border-gray-50">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="text-[11px] font-bold text-gray-400 uppercase">Barang di Lokasi Ini</h4>
-                    {!isEditing && (
-                      <button 
-                        onClick={() => {
-                          setAllocatingStock(true);
-                          setMovingStock({ to_slot_id: selectedSlot.id });
-                        }}
-                        className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 flex items-center gap-1"
-                      >
-                        <Plus size={12} /> Tambah Barang
+          {/* Inspect Panel */}
+          <div className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+            {selectedSlot ? (
+              <div className="flex flex-col h-full animate-in slide-in-from-right duration-300">
+                {/* Panel Header */}
+                <div className="p-6 border-b border-gray-50">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 ${getOccupancyColor(selectedSlot.utilization)}`}>
+                      {selectedSlot.type === 'storage' ? <Database size={24} /> : <Box size={24} />}
+                    </div>
+                    <div className="flex gap-2">
+                      {isEditing && (
+                        <button onClick={() => destroySlot(selectedSlot.id)} className="w-8 h-8 bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                      <button onClick={() => setSelectedSlot(null)} className="w-8 h-8 bg-gray-50 text-gray-400 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-all">
+                        <X size={16} />
                       </button>
-                    )}
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    {selectedSlot.positions && selectedSlot.positions.length > 0 ? (
-                      selectedSlot.positions.map((pos, idx) => (
-                        <div key={idx} className="group flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
-                            <Box size={20} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-dark-gray truncate">{pos.item?.name}</p>
-                            <p className="text-[11px] text-gray-400">{pos.item?.code}</p>
-                          </div>
-                          <div className="text-right flex flex-col items-end gap-1">
-                            <p className="text-sm font-black text-dark-gray leading-none">{pos.quantity}</p>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMovingStock({ item_id: pos.item_id, from_slot_id: selectedSlot.id, item_name: pos.item?.name });
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-blue-600 hover:bg-blue-50 rounded transition-all"
-                            >
-                              <Move size={12} />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="py-4 text-center border-2 border-dashed border-gray-100 rounded-xl">
-                        <p className="text-[11px] text-gray-400">Lokasi Kosong</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                {/* Edit Form if in Edit Mode */}
-                {isEditing && (
-                  <div className="pt-4 border-t border-gray-50">
-                    <h4 className="text-[11px] font-bold text-orange-500 uppercase mb-3">Edit Atribut Slot</h4>
-                    <form onSubmit={handleUpdateSlot} className="space-y-3">
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Nama Slot</label>
-                        <input 
-                          type="text" 
-                          value={selectedSlot.name} 
-                          onChange={e => setSelectedSlot({...selectedSlot, name: e.target.value})}
-                          className="form-input text-xs mt-1" 
-                        />
-                      </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Nama / Kode Rak</label>
+                      <input 
+                        disabled={!isEditing}
+                        value={selectedSlot.name}
+                        onChange={e => updateSelectedSlot({ name: e.target.value.toUpperCase() })}
+                        className="text-lg font-bold text-gray-800 bg-gray-50 disabled:bg-transparent rounded-lg px-2 py-1 w-full focus:ring-2 focus:ring-blue-100 outline-none"
+                      />
+                    </div>
+
+                    {isEditing && (
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[10px] font-bold text-gray-400 uppercase">Zona</label>
-                          <input 
-                            type="text" 
-                            value={selectedSlot.zone} 
-                            onChange={e => setSelectedSlot({...selectedSlot, zone: e.target.value})}
-                            className="form-input text-xs mt-1" 
-                          />
+                          <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Lebar (Cell)</label>
+                          <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
+                            <button onClick={() => updateSelectedSlot({ width: Math.max(1, (selectedSlot.width || 1) - 1) })} className="w-6 h-6 bg-white rounded shadow-sm flex items-center justify-center text-gray-400 hover:text-blue-500"><Minimize2 size={12} /></button>
+                            <span className="flex-1 text-center text-xs font-bold">{selectedSlot.width || 1}</span>
+                            <button onClick={() => updateSelectedSlot({ width: (selectedSlot.width || 1) + 1 })} className="w-6 h-6 bg-white rounded shadow-sm flex items-center justify-center text-gray-400 hover:text-blue-500"><Maximize2 size={12} /></button>
+                          </div>
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-gray-400 uppercase">Kapasitas</label>
-                          <input 
-                            type="number" 
-                            value={selectedSlot.capacity} 
-                            onChange={e => setSelectedSlot({...selectedSlot, capacity: e.target.value})}
-                            className="form-input text-xs mt-1" 
-                          />
+                          <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Tinggi (Cell)</label>
+                          <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
+                            <button onClick={() => updateSelectedSlot({ height: Math.max(1, (selectedSlot.height || 1) - 1) })} className="w-6 h-6 bg-white rounded shadow-sm flex items-center justify-center text-gray-400 hover:text-blue-500"><Minimize2 size={12} /></button>
+                            <span className="flex-1 text-center text-xs font-bold">{selectedSlot.height || 1}</span>
+                            <button onClick={() => updateSelectedSlot({ height: (selectedSlot.height || 1) + 1 })} className="w-6 h-6 bg-white rounded shadow-sm flex items-center justify-center text-gray-400 hover:text-blue-500"><Maximize2 size={12} /></button>
+                          </div>
                         </div>
                       </div>
-                      <button type="submit" className="w-full btn-secondary btn-sm justify-center py-2">
-                        Simpan Atribut
-                      </button>
-                    </form>
-                  </div>
-                )}
-
-                {/* Activity History */}
-                <div className="pt-4 border-t border-gray-50">
-                  <h4 className="text-[11px] font-bold text-gray-400 uppercase mb-3">Riwayat Aktivitas Lokasi</h4>
-                  <div className="space-y-4">
-                    {slotHistory.length > 0 ? (
-                      slotHistory.map((h) => (
-                        <div key={h.id} className="relative pl-5 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-px before:bg-gray-100 last:before:hidden">
-                          <div className="absolute left-[-3px] top-1.5 w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                          <div className="text-[10px] text-gray-400 mb-1">{dayjs(h.date).format('D MMM YYYY HH:mm')}</div>
-                          <p className="text-[12px] font-bold text-dark-gray leading-tight">
-                            {h.type === 'in' ? 'Masuk' : 'Pindah Keluar'} — {h.item_name}
-                          </p>
-                          <p className="text-[10px] text-gray-500 mt-1">oleh {h.user_name}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[11px] text-gray-400 italic">Belum ada riwayat pergerakan stok di lokasi ini.</p>
                     )}
                   </div>
-                  <button className="w-full mt-4 text-[11px] font-bold text-blue-600 hover:text-blue-700 py-2">Lihat Riwayat Lengkap ›</button>
                 </div>
+
+                {/* Details Tab */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  {selectedSlot.type === 'storage' ? (
+                    <>
+                      {/* Stats Overview */}
+                      <div className="p-6 bg-gray-50/50 space-y-4">
+                        <div className="flex justify-between items-end">
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase">Utilisasi Rak</p>
+                            <p className="text-2xl font-black text-gray-800">{selectedSlot.utilization?.toFixed(1)}%</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase">Sisa Kapasitas</p>
+                            <p className="text-sm font-bold text-emerald-600">{Math.max(0, (selectedSlot.capacity || 0) - (selectedSlot.current_quantity || 0))} KG</p>
+                          </div>
+                        </div>
+                        
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full transition-all duration-700 ${
+                              selectedSlot.utilization > 90 ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 
+                              selectedSlot.utilization > 50 ? 'bg-amber-400' : 'bg-emerald-500'
+                            }`}
+                            style={{ width: `${selectedSlot.utilization}%` }}
+                          />
+                        </div>
+
+                        {isEditing && (
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Set Kapasitas Maks (KG)</label>
+                            <input 
+                              type="number"
+                              value={selectedSlot.capacity}
+                              onChange={e => updateSelectedSlot({ capacity: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Content List */}
+                      <div className="flex-1 overflow-hidden flex flex-col">
+                        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+                          <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <Package size={14} /> Isi Rak Saat Ini
+                          </h5>
+                          <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                            {selectedSlot.positions?.length || 0} SKU
+                          </span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar">
+                          {selectedSlot.positions?.length > 0 ? (
+                            selectedSlot.positions.map((pos, idx) => (
+                              <div key={idx} className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-3 group hover:border-blue-200 transition-all">
+                                <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                                  <Package size={16} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[9px] font-bold text-blue-400 uppercase leading-none mb-0.5">{pos.item?.code}</p>
+                                  <p className="text-[11px] font-bold text-gray-800 truncate">{pos.item?.name}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs font-bold text-gray-900">{pos.quantity}</p>
+                                  <p className="text-[9px] font-medium text-gray-400 uppercase">Unit</p>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-center opacity-30 py-10">
+                              <Box size={32} className="mb-2" />
+                              <p className="text-[10px] font-bold uppercase">Rak Kosong</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* History Section */}
+                        <div className="border-t border-gray-100 bg-gray-50/30">
+                           <div className="px-6 py-3 flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                             <History size={14} /> Riwayat Pergerakan
+                           </div>
+                           <div className="px-6 pb-6 max-h-40 overflow-y-auto space-y-3 custom-scrollbar">
+                             {loadingHistory ? (
+                               <div className="flex justify-center py-4"><div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+                             ) : slotHistory.length > 0 ? (
+                               slotHistory.map((h, i) => (
+                                 <div key={i} className="flex gap-3 relative pb-3 last:pb-0">
+                                   {i < slotHistory.length - 1 && <div className="absolute left-1.5 top-4 bottom-0 w-px bg-gray-200" />}
+                                   <div className={`w-3 h-3 rounded-full mt-1 shrink-0 z-10 ${h.type === 'in' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
+                                   <div className="min-w-0">
+                                     <p className="text-[10px] font-bold text-gray-800 leading-tight">
+                                       {h.type === 'in' ? 'Barang Masuk' : 'Pemindahan'} - {h.item_name}
+                                     </p>
+                                     <p className="text-[9px] text-gray-400 mt-0.5">{dayjs(h.date).format('DD/MM HH:mm')} oleh {h.user_name}</p>
+                                   </div>
+                                 </div>
+                               ))
+                             ) : (
+                               <p className="text-[9px] text-gray-400 italic">Belum ada riwayat.</p>
+                             )}
+                           </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gray-50/50">
+                      <div className="w-16 h-16 bg-white rounded-3xl shadow-sm border border-gray-100 flex items-center justify-center text-gray-300 mb-4">
+                        <Settings2 size={32} />
+                      </div>
+                      <h5 className="text-sm font-bold text-gray-700 uppercase mb-2">Elemen Struktural</h5>
+                      <p className="text-xs text-gray-400 font-medium leading-relaxed">
+                        Elemen ini digunakan untuk pemetaan visual alur kerja gudang (pathway, loading dock, dll) dan tidak menampung stok barang.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-200 mb-6">
+                  <LayoutGrid size={40} />
+                </div>
+                <h3 className="text-lg font-bold text-gray-800 uppercase italic mb-2">Detail Objek</h3>
+                <p className="text-xs text-gray-400 font-medium max-w-[200px] leading-relaxed">
+                  Pilih rak atau area di peta untuk melihat kapasitas, isi stok, dan riwayat pergerakan.
+                </p>
               </div>
             )}
           </div>
         </div>
       </div>
-      {/* Move / Allocate Stock Modal */}
-      {(movingStock || allocatingStock) && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-white/20 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-                {allocatingStock ? <Plus size={20} /> : <ArrowRightLeft size={20} />}
-              </div>
-              <div>
-                <h3 className="font-black text-dark-gray text-lg leading-tight">
-                  {allocatingStock ? 'Alokasikan Barang' : 'Pindahkan Barang'}
-                </h3>
-                <p className="text-xs text-gray-400">
-                  {allocatingStock ? 'Masukkan barang ke lokasi' : `Pindahkan stok dari ${selectedSlot?.name}`}
-                </p>
-              </div>
-            </div>
-
-            <p className="text-sm text-gray-600 mb-6 font-medium">
-              {allocatingStock ? (
-                movingStock?.item_name ? (
-                  <>Menempatkan <span className="text-blue-600 font-bold">{movingStock.item_name}</span> ke dalam rak.</>
-                ) : 'Pilih barang dari stok yang belum teralokasi.'
-              ) : (
-                <>Memindahkan <span className="text-blue-600 font-bold">{movingStock.item_name}</span> ke lokasi baru.</>
-              )}
-            </p>
-
-            <form onSubmit={handleMoveStock} className="space-y-4">
-              {allocatingStock && !movingStock?.item_id && (
-                <div>
-                  <label className="form-label">Pilih Barang</label>
-                  <select 
-                    name="item_id" 
-                    required 
-                    className="form-select"
-                    onChange={(e) => {
-                      const item = layout.unallocated.find(i => i.item_id === parseInt(e.target.value));
-                      if (item) setMovingStock({ ...movingStock, item_id: item.item_id, item_name: item.name, max_qty: item.diff });
-                    }}
-                  >
-                    <option value="">Pilih Barang Belum Teralokasi...</option>
-                    {layout?.unallocated?.map(item => (
-                      <option key={item.item_id} value={item.item_id}>{item.name} ({item.diff} blm dialokasikan)</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="form-label">Lokasi Tujuan</label>
-                <select name="to_slot_id" required className="form-select" defaultValue={movingStock?.to_slot_id || ''}>
-                  <option value="">Pilih Slot Tujuan</option>
-                  {allSlots.filter(s => s.id !== movingStock?.from_slot_id).map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.zone})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Jumlah {movingStock?.max_qty ? `(Maks: ${movingStock.max_qty})` : ''}</label>
-                  <input 
-                    type="number" 
-                    name="quantity" 
-                    required 
-                    min="0.01" 
-                    step="0.01" 
-                    max={movingStock?.max_qty || undefined}
-                    className="form-input" 
-                    placeholder="0.00" 
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Satuan</label>
-                  <input type="text" disabled className="form-input bg-gray-50" value="Unit" />
-                </div>
-              </div>
-              <div>
-                <label className="form-label">Catatan (Opsional)</label>
-                <textarea name="notes" className="form-input" rows="2" placeholder="Alasan pemindahan/alokasi..."></textarea>
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 btn-secondary justify-center py-3">
-                  {allocatingStock ? 'Konfirmasi Alokasi' : 'Konfirmasi Pindah'}
-                </button>
-                <button type="button" onClick={() => { setMovingStock(null); setAllocatingStock(false); }} className="flex-1 btn-ghost justify-center py-3">Batal</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
-
-const StatItem = ({ label, value, sub, icon, color }) => (
-  <div className="card flex items-center gap-4 py-4 px-5">
-    <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-      {React.cloneElement(icon, { size: 22 })}
-    </div>
-    <div>
-      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{label}</p>
-      <p className="text-xl font-black text-dark-gray leading-tight">{value}</p>
-      <p className="text-[10px] font-medium text-gray-500">{sub}</p>
-    </div>
-  </div>
-);
 
 export default WarehouseLayoutPage;

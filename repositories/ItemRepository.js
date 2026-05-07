@@ -3,7 +3,7 @@ const { Op } = require('sequelize');
 
 class ItemRepository {
   async findAndCountAll(options = {}) {
-    const { search, category_id, status, limit, offset } = options;
+    const { search, category_id, status, limit, offset, includePositions } = options;
     const where = { is_active: true };
 
     if (search) {
@@ -24,13 +24,25 @@ class ItemRepository {
 
     const finalWhere = extraWhere ? { ...where, [Op.and]: extraWhere } : where;
 
+    const include = [
+      { model: Category, as: 'category' },
+      { model: Unit, as: 'unit' },
+    ];
+
+    if (includePositions) {
+      const { StockPosition, WarehouseSlot } = require('../models');
+      include.push({
+        model: StockPosition,
+        as: 'positions',
+        include: [{ model: WarehouseSlot, as: 'slot' }]
+      });
+    }
+
     return await Item.findAndCountAll({
       where: finalWhere,
-      include: [
-        { model: Category, as: 'category' },
-        { model: Unit, as: 'unit' },
-      ],
+      include,
       order: [['name', 'ASC']],
+      distinct: true, // Needed when including hasMany
       limit,
       offset
     });
