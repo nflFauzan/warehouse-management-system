@@ -17,7 +17,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen, mobileSidebar, se
           onClick={() => setMobileSidebar(false)}
         />
       )}
-
+ 
       <aside
         style={{ background: SIDEBAR_BG }}
         className={`

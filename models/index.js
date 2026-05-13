@@ -219,7 +219,7 @@ WarehouseLayout.hasMany(WarehouseSlot, { foreignKey: 'layout_id', as: 'slots' })
 WarehouseSlot.belongsTo(WarehouseLayout, { foreignKey: 'layout_id' });
 
 WarehouseSlot.hasMany(StockPosition, { foreignKey: 'slot_id', as: 'positions' });
-StockPosition.belongsTo(WarehouseSlot, { foreignKey: 'slot_id' });
+StockPosition.belongsTo(WarehouseSlot, { foreignKey: 'slot_id', as: 'slot' });
 StockPosition.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
 Item.hasMany(StockPosition, { foreignKey: 'item_id', as: 'positions' });
 
