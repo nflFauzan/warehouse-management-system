@@ -20,3 +20,9 @@ export const stockPositionService = {
   get: (params) => api.get('/stock', { params }).then(res => res.data),
   getHistory: (id, params) => api.get(`/stock/${id}/history`, { params }).then(res => res.data)
 };
+
+export const warehouseService = {
+  getLayout: () => api.get('/warehouse/layout').then(res => res.data),
+  getSlots: () => api.get('/warehouse/slots').then(res => res.data),
+  moveStock: (data) => api.post('/warehouse/move', data).then(res => res.data),
+};
