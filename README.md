@@ -45,6 +45,49 @@ Centralized management for:
 
 ---
 
+## 📸 Screenshots
+
+### 🔑 Authentication & Overview
+| Login Screen | Main Dashboard |
+|---|---|
+| ![Login Screen](docs/screenshots/01_login.png) | ![Main Dashboard](docs/screenshots/02_dashboard.png) |
+
+### 🗂️ Master Data Management
+| Items List | Create/Edit Item Form | Category Management |
+|---|---|---|
+| ![Items List](docs/screenshots/03_items_list.png) | ![Item Form](docs/screenshots/04_items_form.png) | ![Categories](docs/screenshots/05_categories.png) |
+
+| Units of Measure | Supplier Management | Customer Management |
+|---|---|---|
+| ![Units](docs/screenshots/06_units.png) | ![Suppliers](docs/screenshots/07_suppliers.png) | ![Customers](docs/screenshots/08_customers.png) |
+
+### 📦 Transaction Workflows (Stock In)
+| Stock In List | Stock In Form | Stock In Detail |
+|---|---|---|
+| ![Stock In List](docs/screenshots/09_stock_in_list.png) | ![Stock In Form](docs/screenshots/10_stock_in_form.png) | ![Stock In Detail](docs/screenshots/11_stock_in_detail.png) |
+
+### 📦 Transaction Workflows (Stock Out)
+| Stock Out List | Stock Out Form | Stock Out Detail |
+|---|---|---|
+| ![Stock Out List](docs/screenshots/12_stock_out_list.png) | ![Stock Out Form](docs/screenshots/13_stock_out_form.png) | ![Stock Out Detail](docs/screenshots/14_stock_out_detail.png) |
+
+### 📍 Stock Position & History
+| Stock Position | Stock History |
+|---|---|
+| ![Stock Position](docs/screenshots/15_stock_position.png) | ![Stock History](docs/screenshots/16_stock_history.png) |
+
+### 📈 Reports
+| Stock Report | Stock In Report | Stock Out Report |
+|---|---|---|
+| ![Stock Report](docs/screenshots/17_report_stock.png) | ![Stock In Report](docs/screenshots/18_report_stock_in.png) | ![Stock Out Report](docs/screenshots/19_report_stock_out.png) |
+
+### 🏭 Warehouse & Settings
+| Warehouse Layout | User Profile Settings | User Management |
+|---|---|---|
+| ![Warehouse Layout](docs/screenshots/20_warehouse_layout.png) | ![Profile](docs/screenshots/21_profile.png) | ![Users](docs/screenshots/22_users.png) |
+
+---
+
 ## 🛠️ Technology Stack
 
 ### Backend
